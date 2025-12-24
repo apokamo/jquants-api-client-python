@@ -2,6 +2,7 @@ import json
 import os
 import platform
 import sys
+import tomllib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -20,12 +21,6 @@ from tenacity import (
 from urllib3.util import Retry
 
 from jquantsapi import __version__, constants, enums
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
-
 
 DatetimeLike = Union[datetime, pd.Timestamp, str]
 _Data = Union[str, Mapping[str, Any]]
