@@ -41,6 +41,7 @@ Flake8-pyproject = "^1.2.3"
 mypy = "^1.15.0"
 pytest = "^8.0.0"
 pytest-cov = "^6.0.0"
+types-python-dateutil = "^2.9.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true
