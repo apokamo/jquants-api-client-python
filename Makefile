@@ -15,4 +15,4 @@ lint-fix:
 
 .PHONY: test
 test:
-	poetry run pytest --cov=./jquantsapi tests/
+	poetry run pytest --cov=./jquants tests/
