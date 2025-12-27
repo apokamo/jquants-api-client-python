@@ -135,3 +135,8 @@ dmypy.json
 
 # Local temporary files
 tmp/
+
+# J-Quants API config (contains API key)
+jquants-api.toml
+.envrc
+CLAUDE.md
