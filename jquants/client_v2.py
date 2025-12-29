@@ -1,5 +1,6 @@
 """J-Quants API V2 Client."""
 
+import json
 import os
 import platform
 import sys
@@ -8,11 +9,17 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
+import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 from jquants import __version__
+from jquants.exceptions import (
+    JQuantsAPIError,
+    JQuantsForbiddenError,
+    JQuantsRateLimitError,
+)
 
 
 class ClientV2:
@@ -23,6 +30,10 @@ class ClientV2:
     USER_AGENT = "jqapi-python"
     RAW_ENCODING = "utf-8"
     REQUEST_TIMEOUT = 30  # seconds
+
+    # Response body truncation for exceptions
+    RESPONSE_BODY_MAX_LENGTH = 2048
+    RESPONSE_BODY_TRUNCATE_SUFFIX = "... (truncated)"
 
     def __init__(self, api_key: Optional[str] = None) -> None:
         """
@@ -172,12 +183,17 @@ class ClientV2:
 
         Returns:
             requests.Session: Configured session with retry
+
+        Note:
+            POST is excluded from allowed_methods to prevent
+            duplicate side effects on retry.
         """
         if self._session is None:
             retry_strategy = Retry(
                 total=3,
                 status_forcelist=[429, 500, 502, 503, 504],
-                allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
+                allowed_methods=["HEAD", "GET", "OPTIONS"],  # POST excluded
+                backoff_factor=0.5,  # Retry-After無しの場合のbackoff
                 respect_retry_after_header=True,
             )
             adapter = HTTPAdapter(
@@ -188,6 +204,75 @@ class ClientV2:
             self._session = requests.Session()
             self._session.mount("https://", adapter)
         return self._session
+
+    def _truncate_response_body(self, text: str) -> str:
+        """
+        Truncate response body for exception.
+
+        Ensures the result is strictly <= RESPONSE_BODY_MAX_LENGTH.
+
+        Args:
+            text: Response body text
+
+        Returns:
+            Original text if under limit, truncated with suffix otherwise
+        """
+        if len(text) <= self.RESPONSE_BODY_MAX_LENGTH:
+            return text
+        max_prefix = self.RESPONSE_BODY_MAX_LENGTH - len(
+            self.RESPONSE_BODY_TRUNCATE_SUFFIX
+        )
+        if max_prefix <= 0:
+            # Edge case: suffix alone exceeds MAX - truncate suffix itself
+            return self.RESPONSE_BODY_TRUNCATE_SUFFIX[: self.RESPONSE_BODY_MAX_LENGTH]
+        return text[:max_prefix] + self.RESPONSE_BODY_TRUNCATE_SUFFIX
+
+    def _handle_error_response(self, response: requests.Response) -> None:
+        """
+        Parse error response and raise appropriate exception.
+
+        V2 API error format: {"message": "エラー詳細"}
+
+        Args:
+            response: HTTP response with error status
+
+        Raises:
+            JQuantsForbiddenError: 403 Forbidden (invalid API key, plan limit, etc.)
+            JQuantsRateLimitError: 429 Too Many Requests
+            JQuantsAPIError: Other 4xx/5xx errors
+        """
+        status_code = response.status_code
+        response_body = self._truncate_response_body(response.text)
+
+        # Try to extract error message from JSON response
+        try:
+            error_body = response.json()
+            if isinstance(error_body, dict):
+                raw_message = error_body.get("message")
+                if isinstance(raw_message, str):
+                    message = self._truncate_response_body(raw_message)
+                elif raw_message is not None:
+                    # Non-string message (dict/list/int): serialize to preserve info
+                    try:
+                        message = self._truncate_response_body(
+                            json.dumps(raw_message, ensure_ascii=False)
+                        )
+                    except (TypeError, ValueError):
+                        # Fallback if json.dumps fails (e.g., non-serializable type)
+                        message = response_body or f"HTTP {status_code}"
+                else:
+                    message = response_body or f"HTTP {status_code}"
+            else:
+                message = response_body or f"HTTP {status_code}"
+        except (ValueError, TypeError):
+            message = response_body or f"HTTP {status_code}"
+
+        if status_code == 403:
+            raise JQuantsForbiddenError(message, status_code, response_body)
+        elif status_code == 429:
+            raise JQuantsRateLimitError(message, status_code, response_body)
+        else:
+            raise JQuantsAPIError(message, status_code, response_body)
 
     def _request(
         self,
@@ -210,7 +295,11 @@ class ClientV2:
             requests.Response
 
         Raises:
-            requests.HTTPError: On 4xx/5xx responses (after retries)
+            JQuantsForbiddenError: 403 Forbidden (invalid API key, plan limit, etc.)
+            JQuantsRateLimitError: 429 Too Many Requests (after retries exhausted)
+            JQuantsAPIError: Other 4xx/5xx errors (after retries exhausted)
+            requests.Timeout: Timeout (not wrapped)
+            requests.ConnectionError: Connection error (not wrapped)
         """
         url = f"{self.JQUANTS_API_BASE}{path}"
         session = self._request_session()
@@ -223,5 +312,171 @@ class ClientV2:
             headers=self._base_headers(),
             timeout=self.REQUEST_TIMEOUT,
         )
-        response.raise_for_status()
+
+        if not response.ok:
+            self._handle_error_response(response)
+
         return response
+
+    def _get_raw(
+        self,
+        path: str,
+        params: Optional[dict] = None,
+    ) -> str:
+        """
+        Execute GET request and return raw JSON string.
+
+        Args:
+            path: API path (e.g., "/equities/master")
+            params: Query parameters
+
+        Returns:
+            Raw JSON string (UTF-8 encoded)
+        """
+        response = self._request("GET", path, params=params)
+        return response.content.decode(self.RAW_ENCODING)
+
+    def _paginated_get(
+        self,
+        path: str,
+        params: Optional[dict] = None,
+        *,
+        max_pages: int = 1000,
+    ) -> list[dict]:
+        """
+        Execute GET request with pagination handling.
+
+        V2 API pagination format:
+        {"data": [...], "pagination_key": "next_key"}
+
+        Args:
+            path: API path
+            params: Query parameters (pagination_key will be auto-managed)
+            max_pages: Maximum pages to fetch (default: 1000, safety guard)
+
+        Returns:
+            Combined data list from all pages
+
+        Raises:
+            JQuantsAPIError: If max_pages exceeded, pagination_key repeated,
+                            or response shape is invalid (all with status_code=None)
+        """
+        all_data: list[dict] = []
+        current_params = dict(params) if params else {}
+        seen_keys: set[str] = set()
+
+        for page in range(max_pages):
+            response = self._request("GET", path, params=current_params)
+
+            # Parse JSON (status_code=None: client-side error)
+            try:
+                result = response.json()
+            except (ValueError, TypeError) as e:
+                raise JQuantsAPIError(
+                    f"JSON decode error: {e} (path={path}, page={page})",
+                    status_code=None,
+                    response_body=self._truncate_response_body(response.text),
+                ) from e
+
+            # Validate response shape (status_code=None: contract violation)
+            if not isinstance(result, dict):
+                raise JQuantsAPIError(
+                    f"Unexpected response type: expected dict, "
+                    f"got {type(result).__name__} (path={path}, page={page})",
+                    status_code=None,
+                    response_body=self._truncate_response_body(response.text),
+                )
+
+            # V2 format: data is always in "data" key (required)
+            if "data" not in result:
+                raise JQuantsAPIError(
+                    f"Missing 'data' key in response (path={path}, page={page})",
+                    status_code=None,
+                    response_body=self._truncate_response_body(response.text),
+                )
+            data = result["data"]
+            if not isinstance(data, list):
+                raise JQuantsAPIError(
+                    f"Unexpected data type: expected list, "
+                    f"got {type(data).__name__} (path={path}, page={page})",
+                    status_code=None,
+                    response_body=self._truncate_response_body(response.text),
+                )
+            all_data.extend(data)
+
+            # Check for pagination
+            pagination_key = result.get("pagination_key")
+            if not pagination_key:
+                break
+
+            # Guard against infinite loop (same key returned)
+            if pagination_key in seen_keys:
+                raise JQuantsAPIError(
+                    f"pagination_key repeated: {pagination_key} "
+                    f"(path={path}, page={page}). This may indicate an API issue.",
+                    status_code=None,
+                    response_body=None,
+                )
+            seen_keys.add(pagination_key)
+
+            current_params["pagination_key"] = pagination_key
+        else:
+            # page == max_pages - 1 at this point (loop exhausted)
+            last_page = max_pages - 1
+            raise JQuantsAPIError(
+                f"Pagination exceeded max_pages={max_pages} "
+                f"(path={path}, page={last_page}). "
+                "This may indicate an API issue or infinite loop.",
+                status_code=None,
+                response_body=None,
+            )
+
+        return all_data
+
+    def _to_dataframe(
+        self,
+        data: list[dict],
+        columns: list[str],
+        *,
+        date_columns: list[str] | None = None,
+        sort_columns: list[str] | None = None,
+    ) -> pd.DataFrame:
+        """
+        Convert list of dicts to DataFrame with proper formatting.
+
+        Args:
+            data: List of dictionaries from API response
+            columns: Expected column order (superset; missing columns ignored)
+            date_columns: Columns to convert to pd.Timestamp (None = no conversion)
+            sort_columns: Columns to sort by (None = no sorting)
+
+        Returns:
+            Formatted pandas DataFrame
+
+        Note:
+            Each endpoint wrapper SHOULD explicitly specify date_columns and
+            sort_columns for clarity and maintainability.
+        """
+        if not data:
+            # Return empty DataFrame with expected columns
+            return pd.DataFrame(columns=columns)
+
+        df = pd.DataFrame(data)
+
+        # Reorder columns (only include existing columns)
+        existing_columns = [c for c in columns if c in df.columns]
+        df = df[existing_columns]
+
+        # Convert date columns
+        if date_columns:
+            for col in date_columns:
+                if col in df.columns:
+                    df[col] = pd.to_datetime(df[col])
+
+        # Sort
+        if sort_columns:
+            sort_cols_existing = [c for c in sort_columns if c in df.columns]
+            if sort_cols_existing:
+                df = df.sort_values(sort_cols_existing).reset_index(drop=True)
+
+        return df

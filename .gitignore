@@ -140,3 +140,9 @@ tmp/
 jquants-api.toml
 .envrc
 CLAUDE.md
+
+# Serena MCP (local config and cache)
+.serena/
+
+# Local tools and memos
+.local/
