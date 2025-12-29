@@ -1,0 +1,16 @@
+#!/bin/bash
+# gh wrapper to block operations on upstream repo
+
+BLOCKED_REPO="J-Quants/jquants-api-client-python"
+
+# Check all arguments for blocked repo reference
+for arg in "$@"; do
+    if [[ "$arg" == *"$BLOCKED_REPO"* ]]; then
+        echo "❌ BLOCKED: Operation on upstream repo ($BLOCKED_REPO) is not allowed."
+        echo "   Use apokamo/jquants-api-client-python instead."
+        exit 1
+    fi
+done
+
+# Safe to proceed - call real gh
+exec /usr/bin/gh "$@"

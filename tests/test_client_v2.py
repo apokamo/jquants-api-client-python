@@ -1,4 +1,4 @@
-"""Phase 2 TDD tests: ClientV2 authentication and configuration."""
+"""Phase 2 & 3.1 TDD tests: ClientV2 authentication, configuration, and error handling."""
 
 import os
 import platform
@@ -8,10 +8,15 @@ import warnings
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
-import requests
 
 from jquants import __version__
+from jquants.exceptions import (
+    JQuantsAPIError,
+    JQuantsForbiddenError,
+    JQuantsRateLimitError,
+)
 
 
 class TestClientV2Instantiation:
@@ -565,8 +570,8 @@ class TestClientV2Request:
             assert "x-api-key" in headers
             assert "User-Agent" in headers
 
-    def test_request_raises_on_http_error(self):
-        """_request() should raise HTTPError on failure."""
+    def test_request_returns_response_on_success(self):
+        """R001: 200 OK response should not raise exception."""
         from jquants import ClientV2
 
         client = ClientV2(api_key="test_api_key")
@@ -574,14 +579,13 @@ class TestClientV2Request:
         with patch.object(client, "_request_session") as mock_session_method:
             mock_session = MagicMock()
             mock_response = MagicMock()
-            mock_response.raise_for_status.side_effect = requests.HTTPError(
-                "401 Unauthorized"
-            )
+            mock_response.ok = True
+            mock_response.status_code = 200
             mock_session.request.return_value = mock_response
             mock_session_method.return_value = mock_session
 
-            with pytest.raises(requests.HTTPError):
-                client._request("GET", "/path")
+            result = client._request("GET", "/path")
+            assert result is mock_response
 
 
 class TestClientV2Strip:
@@ -647,3 +651,849 @@ class TestClientV2ClassConstants:
         from jquants import ClientV2
 
         assert ClientV2.REQUEST_TIMEOUT == 30
+
+
+class TestClientV2ErrorHandling:
+    """Test HTTP error handling and custom exceptions."""
+
+    def _create_mock_response(
+        self, status_code: int, text: str = "", json_data: dict | None = None
+    ):
+        """Helper to create mock response."""
+        mock_response = MagicMock()
+        mock_response.ok = status_code < 400
+        mock_response.status_code = status_code
+        mock_response.text = text
+        if json_data is not None:
+            mock_response.json.return_value = json_data
+        else:
+            mock_response.json.side_effect = ValueError("No JSON")
+        return mock_response
+
+    def test_403_raises_forbidden_error(self):
+        """R003: 403 should raise JQuantsForbiddenError."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                403, json_data={"message": "Forbidden"}
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsForbiddenError) as exc_info:
+                client._request("GET", "/path")
+
+            assert exc_info.value.status_code == 403
+
+    def test_429_raises_rate_limit_error(self):
+        """R004: 429 should raise JQuantsRateLimitError."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                429, json_data={"message": "Rate limit exceeded"}
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsRateLimitError) as exc_info:
+                client._request("GET", "/path")
+
+            assert exc_info.value.status_code == 429
+
+    def test_400_raises_api_error(self):
+        """R005: 400 should raise JQuantsAPIError."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                400, json_data={"message": "Bad request"}
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            assert exc_info.value.status_code == 400
+
+    def test_500_raises_api_error(self):
+        """R006: 500 should raise JQuantsAPIError."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                500, json_data={"message": "Internal server error"}
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            assert exc_info.value.status_code == 500
+
+    def test_error_extracts_message_from_json(self):
+        """R007: Error response JSON message should be extracted."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                400, json_data={"message": "Custom error message"}
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            assert "Custom error message" in str(exc_info.value)
+
+    def test_error_handles_non_json_response(self):
+        """R008: Non-JSON error response (HTML etc) should still raise exception."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                500, text="<html>Error</html>", json_data=None
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            assert exc_info.value.status_code == 500
+
+    def test_error_handles_json_list_response(self):
+        """R009: JSON list response (not dict) should still raise exception."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = MagicMock()
+            mock_response.ok = False
+            mock_response.status_code = 400
+            mock_response.text = '["error1", "error2"]'
+            mock_response.json.return_value = ["error1", "error2"]
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            assert exc_info.value.status_code == 400
+
+    def test_non_string_message_field_does_not_crash(self):
+        """R019: Non-string message field should not crash error handling."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = MagicMock()
+            mock_response.ok = False
+            mock_response.status_code = 400
+            # message is a dict, not a string
+            mock_response.text = '{"message": {"error": "detail"}}'
+            mock_response.json.return_value = {"message": {"error": "detail"}}
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            # Should serialize non-string message to preserve info
+            assert exc_info.value.status_code == 400
+            assert exc_info.value.response_body == '{"message": {"error": "detail"}}'
+            # Exception message should contain serialized message content
+            assert "error" in str(exc_info.value)
+            assert "detail" in str(exc_info.value)
+
+    def test_error_contains_status_code_and_response_body(self):
+        """R010: Exception should contain status_code and response_body."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                400, text='{"message": "Bad"}', json_data={"message": "Bad"}
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            assert exc_info.value.status_code == 400
+            assert exc_info.value.response_body == '{"message": "Bad"}'
+
+    def test_response_body_truncated_if_too_long(self):
+        """R011: response_body should be truncated if exceeds 2048 chars."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        long_text = "x" * 3000
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(500, text=long_text)
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            assert len(exc_info.value.response_body) <= 2048
+            assert "truncated" in exc_info.value.response_body
+
+    def test_truncated_response_body_is_exactly_max_length(self):
+        """R012: Truncated response_body should be exactly 2048 chars or less."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        # Test with various lengths
+        for length in [2048, 2049, 3000, 10000]:
+            long_text = "x" * length
+
+            with patch.object(client, "_request_session") as mock_session_method:
+                mock_session = MagicMock()
+                mock_response = self._create_mock_response(500, text=long_text)
+                mock_session.request.return_value = mock_response
+                mock_session_method.return_value = mock_session
+
+                with pytest.raises(JQuantsAPIError) as exc_info:
+                    client._request("GET", "/path")
+
+                assert len(exc_info.value.response_body) <= 2048
+
+    def test_message_fallback_uses_response_body(self):
+        """R013: When message is None, fallback should be response_body (truncated)."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                400, text="Error text", json_data={"other_field": "value"}
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            # Message should fall back to response_body
+            assert "Error text" in str(exc_info.value)
+
+    def test_api_message_field_truncated_if_huge(self):
+        """R014: API message field should be truncated if huge."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        huge_message = "y" * 5000
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = self._create_mock_response(
+                400,
+                text=f'{{"message": "{huge_message}"}}',
+                json_data={"message": huge_message},
+            )
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._request("GET", "/path")
+
+            # The exception message should be truncated
+            assert len(str(exc_info.value)) <= 2048
+
+
+class TestClientV2TruncateResponseBody:
+    """Test _truncate_response_body method."""
+
+    def test_short_text_unchanged(self):
+        """Text under 2048 chars should be returned unchanged."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        text = "Short text"
+        result = client._truncate_response_body(text)
+        assert result == text
+
+    def test_exactly_max_length_unchanged(self):
+        """Text exactly 2048 chars should be returned unchanged."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        text = "x" * 2048
+        result = client._truncate_response_body(text)
+        assert result == text
+        assert len(result) == 2048
+
+    def test_over_max_length_truncated(self):
+        """Text over 2048 chars should be truncated with suffix."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        text = "x" * 3000
+        result = client._truncate_response_body(text)
+        assert len(result) <= 2048
+        assert result.endswith("... (truncated)")
+
+    def test_result_always_under_max_length(self):
+        """R015: Result should always be <= 2048 chars even with extreme suffix."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        # Test various lengths
+        for length in [2049, 3000, 10000]:
+            text = "x" * length
+            result = client._truncate_response_body(text)
+            assert len(result) <= 2048
+
+
+class TestClientV2RetrySettings:
+    """Test _request_session() retry configuration (S001-S004)."""
+
+    def test_retry_total_is_3(self):
+        """S001: Retry.total should be 3."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        session = client._request_session()
+        adapter = session.get_adapter("https://example.com")
+
+        assert adapter.max_retries.total == 3
+
+    def test_status_forcelist_contains_required_codes(self):
+        """S002: status_forcelist should contain 429, 500, 502, 503, 504."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        session = client._request_session()
+        adapter = session.get_adapter("https://example.com")
+        forcelist = adapter.max_retries.status_forcelist
+
+        assert 429 in forcelist
+        assert 500 in forcelist
+        assert 502 in forcelist
+        assert 503 in forcelist
+        assert 504 in forcelist
+
+    def test_allowed_methods_includes_get_excludes_post(self):
+        """S003: allowed_methods should include GET but exclude POST."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        session = client._request_session()
+        adapter = session.get_adapter("https://example.com")
+        methods = adapter.max_retries.allowed_methods
+
+        assert "GET" in methods
+        assert "POST" not in methods
+
+    def test_respect_retry_after_header_is_true(self):
+        """S004: respect_retry_after_header should be True."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        session = client._request_session()
+        adapter = session.get_adapter("https://example.com")
+
+        assert adapter.max_retries.respect_retry_after_header is True
+
+    def test_backoff_factor_is_set(self):
+        """S005: backoff_factor should be set for Retry-After fallback."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        session = client._request_session()
+        adapter = session.get_adapter("https://example.com")
+
+        # backoff_factor > 0 for exponential backoff when Retry-After is absent
+        assert adapter.max_retries.backoff_factor == 0.5
+
+
+class TestClientV2GetRaw:
+    """Test _get_raw() helper method (H001-H002)."""
+
+    def test_returns_raw_json_string(self):
+        """H001: _get_raw() should return raw JSON string."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.content = b'{"data": []}'
+            mock_request.return_value = mock_response
+
+            result = client._get_raw("/path")
+
+            assert result == '{"data": []}'
+            assert isinstance(result, str)
+
+    def test_decodes_as_utf8(self):
+        """H002: _get_raw() should decode as UTF-8."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            # Japanese text in UTF-8
+            mock_response.content = '{"data": "日本語"}'.encode("utf-8")
+            mock_request.return_value = mock_response
+
+            result = client._get_raw("/path")
+
+            assert "日本語" in result
+
+
+class TestClientV2PaginatedGet:
+    """Test _paginated_get() helper method (H003-H011)."""
+
+    def test_single_page_processing(self):
+        """H003: _paginated_get() should correctly process single page."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {
+                "data": [{"Code": "1301"}],
+            }
+            mock_request.return_value = mock_response
+
+            result = client._paginated_get("/path")
+
+            assert result == [{"Code": "1301"}]
+
+    def test_multiple_pages_combined(self):
+        """H004: _paginated_get() should combine multiple pages."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        responses = [
+            {"data": [{"Code": "1301"}], "pagination_key": "key1"},
+            {"data": [{"Code": "1302"}], "pagination_key": "key2"},
+            {"data": [{"Code": "1303"}]},  # No pagination_key = last page
+        ]
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.side_effect = responses
+            mock_request.return_value = mock_response
+
+            result = client._paginated_get("/path")
+
+            assert result == [{"Code": "1301"}, {"Code": "1302"}, {"Code": "1303"}]
+
+    def test_stops_when_no_pagination_key(self):
+        """H005: _paginated_get() should stop when pagination_key is absent."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": [{"Code": "1301"}]}
+            mock_request.return_value = mock_response
+
+            client._paginated_get("/path")
+
+            # Should only be called once
+            assert mock_request.call_count == 1
+
+    def test_repeated_pagination_key_raises_error(self):
+        """H006: _paginated_get() should raise JQuantsAPIError on repeated pagination_key."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        responses = [
+            {"data": [{"Code": "1301"}], "pagination_key": "same_key"},
+            {"data": [{"Code": "1302"}], "pagination_key": "same_key"},  # Repeated!
+        ]
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.side_effect = responses
+            mock_response.text = '{"data": []}'
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/path")
+
+            assert "pagination_key repeated" in str(exc_info.value)
+            assert exc_info.value.status_code is None
+
+    def test_max_pages_exceeded_raises_error(self):
+        """H007: _paginated_get() should raise JQuantsAPIError when max_pages exceeded."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        call_count = 0
+
+        def make_response():
+            nonlocal call_count
+            call_count += 1
+            return {
+                "data": [{"Code": str(call_count)}],
+                "pagination_key": f"key{call_count}",
+            }
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.side_effect = lambda: make_response()
+            mock_response.text = '{"data": []}'
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/path", max_pages=3)
+
+            assert "max_pages" in str(exc_info.value)
+            assert exc_info.value.status_code is None
+
+    def test_non_dict_response_raises_error(self):
+        """H008: _paginated_get() should raise JQuantsAPIError when response is not dict."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.return_value = ["unexpected", "list"]
+            mock_response.text = '["unexpected", "list"]'
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/path")
+
+            assert "expected dict" in str(exc_info.value)
+            assert exc_info.value.status_code is None
+
+    def test_non_list_data_raises_error(self):
+        """H009: _paginated_get() should raise JQuantsAPIError when data is not list."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": "not a list"}
+            mock_response.text = '{"data": "not a list"}'
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/path")
+
+            assert "expected list" in str(exc_info.value)
+            assert exc_info.value.status_code is None
+
+    def test_all_errors_have_status_code_none(self):
+        """H010: All _paginated_get() errors should have status_code=None."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        # Test non-dict response
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.return_value = []
+            mock_response.text = "[]"
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/path")
+
+            assert exc_info.value.status_code is None
+
+    def test_error_message_contains_path(self):
+        """H011: Error message should contain the path for debugging."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.return_value = []
+            mock_response.text = "[]"
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/equities/master")
+
+            assert "/equities/master" in str(exc_info.value)
+
+
+class TestClientV2ToDataframe:
+    """Test _to_dataframe() helper method (H012-H018)."""
+
+    def test_empty_list_returns_empty_dataframe(self):
+        """H012: _to_dataframe() should return empty DataFrame from empty list."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        columns = ["Code", "Date", "Value"]
+
+        result = client._to_dataframe([], columns)
+
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 0
+        assert list(result.columns) == columns
+
+    def test_column_order_applied(self):
+        """H013: _to_dataframe() should apply correct column order."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Value": 100, "Code": "1301", "Date": "2024-01-01"}]
+        columns = ["Code", "Date", "Value"]
+
+        result = client._to_dataframe(data, columns)
+
+        assert list(result.columns) == columns
+
+    def test_date_columns_converted_to_timestamp(self):
+        """H014: _to_dataframe() should convert date_columns to pd.Timestamp."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Code": "1301", "Date": "2024-01-15"}]
+        columns = ["Code", "Date"]
+
+        result = client._to_dataframe(data, columns, date_columns=["Date"])
+
+        assert pd.api.types.is_datetime64_any_dtype(result["Date"])
+
+    def test_sorting_applied(self):
+        """H015: _to_dataframe() should apply sorting correctly."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [
+            {"Code": "1302", "Date": "2024-01-02"},
+            {"Code": "1301", "Date": "2024-01-01"},
+        ]
+        columns = ["Code", "Date"]
+
+        result = client._to_dataframe(data, columns, sort_columns=["Code", "Date"])
+
+        assert result.iloc[0]["Code"] == "1301"
+        assert result.iloc[1]["Code"] == "1302"
+
+    def test_missing_columns_ignored(self):
+        """H016: _to_dataframe() should ignore columns not in API response."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Code": "1301", "Date": "2024-01-01"}]
+        columns = ["Code", "Date", "ExtraColumn"]  # ExtraColumn not in data
+
+        result = client._to_dataframe(data, columns)
+
+        assert "Code" in result.columns
+        assert "Date" in result.columns
+        assert "ExtraColumn" not in result.columns
+
+    def test_date_columns_none_skips_conversion(self):
+        """H017: _to_dataframe() should skip date conversion when date_columns=None."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Code": "1301", "Date": "2024-01-15"}]
+        columns = ["Code", "Date"]
+
+        result = client._to_dataframe(data, columns, date_columns=None)
+
+        # Date should remain as string
+        assert result["Date"].iloc[0] == "2024-01-15"
+
+    def test_sort_columns_none_skips_sorting(self):
+        """H018: _to_dataframe() should skip sorting when sort_columns=None."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [
+            {"Code": "1302", "Date": "2024-01-02"},
+            {"Code": "1301", "Date": "2024-01-01"},
+        ]
+        columns = ["Code", "Date"]
+
+        result = client._to_dataframe(data, columns, sort_columns=None)
+
+        # Original order should be preserved
+        assert result.iloc[0]["Code"] == "1302"
+        assert result.iloc[1]["Code"] == "1301"
+
+    def test_date_conversion_failure_raises_exception(self):
+        """H019: _to_dataframe() should raise exception on invalid date format."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Code": "1301", "Date": "invalid-date-format"}]
+        columns = ["Code", "Date"]
+
+        # 方針: pd.to_datetime() の例外をそのまま素通しする
+        # pandasのDatetimeParserは ValueError または DateParseError を発生させる
+        # （DateParseError は pandas 2.0+ で ValueError のサブクラス）
+        with pytest.raises(ValueError):
+            client._to_dataframe(data, columns, date_columns=["Date"])
+
+
+class TestClientV2PaginatedGetJSONDecode:
+    """Test _paginated_get() JSON decode failure (H020-H021)."""
+
+    def test_json_decode_failure_raises_jquants_api_error(self):
+        """H020: _paginated_get() should raise JQuantsAPIError on JSON decode failure."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.side_effect = ValueError("Invalid JSON")
+            mock_response.text = "Not valid JSON"
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/path")
+
+            assert exc_info.value.status_code is None
+            assert (
+                "JSON" in str(exc_info.value) or "decode" in str(exc_info.value).lower()
+            )
+
+    def test_json_decode_failure_includes_response_body(self):
+        """H021: JSON decode failure should include truncated response body."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        long_response = "x" * 3000  # Exceeds RESPONSE_BODY_MAX_LENGTH
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.json.side_effect = ValueError("Invalid JSON")
+            mock_response.text = long_response
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/path")
+
+            # response_body should be truncated
+            assert exc_info.value.response_body is not None
+            assert (
+                len(exc_info.value.response_body) <= ClientV2.RESPONSE_BODY_MAX_LENGTH
+            )
+
+
+class TestClientV2PaginatedGetDataKeyMissing:
+    """Test _paginated_get() data key missing (H022)."""
+
+    def test_missing_data_key_raises_error(self):
+        """H022: _paginated_get() should raise JQuantsAPIError when 'data' key is missing."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request") as mock_request:
+            mock_response = MagicMock()
+            # Valid JSON dict, but no 'data' key
+            mock_response.json.return_value = {"other_key": "value"}
+            mock_response.text = '{"other_key": "value"}'
+            mock_request.return_value = mock_response
+
+            with pytest.raises(JQuantsAPIError) as exc_info:
+                client._paginated_get("/path")
+
+            assert exc_info.value.status_code is None
+            assert "data" in str(exc_info.value).lower()
+
+
+class TestClientV2NetworkExceptionsPassthrough:
+    """Test that network exceptions are NOT wrapped (R016-R018)."""
+
+    def test_timeout_exception_not_wrapped(self):
+        """R016: requests.Timeout should NOT be wrapped in JQuantsAPIError."""
+        import requests
+
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_session.request.side_effect = requests.Timeout("Connection timed out")
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(requests.Timeout):
+                client._request("GET", "/path")
+
+    def test_connection_error_not_wrapped(self):
+        """R017: requests.ConnectionError should NOT be wrapped in JQuantsAPIError."""
+        import requests
+
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_session.request.side_effect = requests.ConnectionError(
+                "Connection failed"
+            )
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(requests.ConnectionError):
+                client._request("GET", "/path")
+
+    def test_ssl_error_not_wrapped(self):
+        """R018: requests.SSLError should NOT be wrapped in JQuantsAPIError."""
+        import requests
+
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_session.request.side_effect = requests.exceptions.SSLError("SSL error")
+            mock_session_method.return_value = mock_session
+
+            with pytest.raises(requests.exceptions.SSLError):
+                client._request("GET", "/path")

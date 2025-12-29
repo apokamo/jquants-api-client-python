@@ -60,6 +60,15 @@ profile = "black"
 skip = [".venv", ".uv-cache", ".poetry-cache"]
 skip_glob = ["**/node_modules/**"]
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests requiring API key (run with 'pytest -m integration')",
+]
+testpaths = ["tests"]
+# Exclude integration tests by default (they require API key and network access)
+# Run integration tests explicitly: pytest -m integration
+addopts = "-v -m 'not integration'"
+
 [tool.coverage.run]
 omit = [
     "jquants/client_v1.py",

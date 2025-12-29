@@ -135,3 +135,14 @@ dmypy.json
 
 # Local temporary files
 tmp/
+
+# J-Quants API config (contains API key)
+jquants-api.toml
+.envrc
+CLAUDE.md
+
+# Serena MCP (local config and cache)
+.serena/
+
+# Local tools and memos
+.local/

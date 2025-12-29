@@ -4,3 +4,8 @@ __version__ = "0.0.0"
 from .client_v1 import ClientV1
 from .client_v2 import ClientV2
 from .enums import MARKET_API_SECTIONS
+from .exceptions import (
+    JQuantsAPIError,
+    JQuantsForbiddenError,
+    JQuantsRateLimitError,
+)
