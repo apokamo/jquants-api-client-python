@@ -20,6 +20,7 @@ from jquants.exceptions import (
     JQuantsForbiddenError,
     JQuantsRateLimitError,
 )
+from jquants.pacer import Pacer
 
 
 class ClientV2:
@@ -35,15 +36,30 @@ class ClientV2:
     RESPONSE_BODY_MAX_LENGTH = 2048
     RESPONSE_BODY_TRUNCATE_SUFFIX = "... (truncated)"
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        rate_limit: Optional[int] = None,
+        max_workers: int = 1,
+        retry_on_429: bool = True,
+        retry_wait_seconds: int = 310,
+        retry_max_attempts: int = 3,
+    ) -> None:
         """
         Initialize ClientV2 with API key authentication.
 
         Args:
             api_key: J-Quants API key (環境変数 JQUANTS_API_KEY / TOMLでも可)
+            rate_limit: 1分あたりの最大リクエスト数 (req/min), None→5(Free)
+            max_workers: 並列度, 1=直列
+            retry_on_429: 429時リトライするか
+            retry_wait_seconds: 429時の待機時間（秒）
+            retry_max_attempts: 最大リトライ回数
 
         Raises:
             ValueError: api_keyが未設定または空文字の場合
+            ValueError: rate_limit/max_workers/retry_wait_seconds <= 0 の場合
+            ValueError: retry_max_attempts < 0 の場合
             TypeError: api_keyが文字列以外の場合
         """
         config = self._load_config()
@@ -67,6 +83,33 @@ class ClientV2:
                 "api_key is required. Set api_key parameter, "
                 "JQUANTS_API_KEY environment variable, or api_key in config file."
             )
+
+        # Validate and set rate limit parameters
+        effective_rate_limit = rate_limit if rate_limit is not None else 5
+        if effective_rate_limit <= 0:
+            raise ValueError(f"rate_limit must be positive, got {effective_rate_limit}")
+        self._rate_limit = effective_rate_limit
+
+        if max_workers <= 0:
+            raise ValueError(f"max_workers must be positive, got {max_workers}")
+        self._max_workers = max_workers
+
+        if retry_wait_seconds <= 0:
+            raise ValueError(
+                f"retry_wait_seconds must be positive, got {retry_wait_seconds}"
+            )
+        self._retry_wait_seconds = retry_wait_seconds
+
+        if retry_max_attempts < 0:
+            raise ValueError(
+                f"retry_max_attempts must be non-negative, got {retry_max_attempts}"
+            )
+        self._retry_max_attempts = retry_max_attempts
+
+        self._retry_on_429 = retry_on_429
+
+        # Initialize Pacer for rate limiting
+        self._pacer = Pacer(rate=self._rate_limit)
 
         self._session: Optional[requests.Session] = None
 

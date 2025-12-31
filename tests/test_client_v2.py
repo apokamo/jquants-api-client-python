@@ -1497,3 +1497,143 @@ class TestClientV2NetworkExceptionsPassthrough:
 
             with pytest.raises(requests.exceptions.SSLError):
                 client._request("GET", "/path")
+
+
+class TestClientV2RateLimitParameters:
+    """Test ClientV2 rate limit parameters (CV2-RATE-001~009)."""
+
+    def test_rate_limit_none_defaults_to_5(self):
+        """CV2-RATE-001: rate_limit=None → デフォルト5"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", rate_limit=None)
+        assert client._rate_limit == 5
+        assert client._pacer.interval == pytest.approx(12.0, rel=1e-6)
+
+    def test_rate_limit_120_reflects_setting(self):
+        """CV2-RATE-002: rate_limit=120 → 設定反映"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", rate_limit=120)
+        assert client._rate_limit == 120
+        assert client._pacer.interval == pytest.approx(0.5, rel=1e-6)
+
+    def test_max_workers_default_is_1(self):
+        """CV2-RATE-003: max_workers=1 → 直列"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        assert client._max_workers == 1
+
+    def test_max_workers_3_reflects_setting(self):
+        """CV2-RATE-004: max_workers=3 → 設定反映"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", max_workers=3)
+        assert client._max_workers == 3
+
+    def test_retry_on_429_default_is_true(self):
+        """CV2-RATE-005: retry_on_429=True → リトライ有効"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        assert client._retry_on_429 is True
+
+    def test_retry_on_429_false_reflects_setting(self):
+        """CV2-RATE-006: retry_on_429=False → 即例外"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_on_429=False)
+        assert client._retry_on_429 is False
+
+    def test_retry_wait_seconds_default_is_310(self):
+        """CV2-RATE-007: retry_wait_seconds=310 → デフォルト"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        assert client._retry_wait_seconds == 310
+
+    def test_retry_wait_seconds_600_reflects_setting(self):
+        """CV2-RATE-007: retry_wait_seconds=600 → 設定反映"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_wait_seconds=600)
+        assert client._retry_wait_seconds == 600
+
+    def test_retry_max_attempts_default_is_3(self):
+        """CV2-RATE-008: retry_max_attempts=3 → デフォルト"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        assert client._retry_max_attempts == 3
+
+    def test_retry_max_attempts_5_reflects_setting(self):
+        """CV2-RATE-008: retry_max_attempts=5 → 設定反映"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_max_attempts=5)
+        assert client._retry_max_attempts == 5
+
+    def test_rate_limit_zero_raises_valueerror(self):
+        """CV2-RATE-009: rate_limit=0 → ValueError"""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2(api_key="test_api_key", rate_limit=0)
+        assert "rate_limit" in str(exc_info.value).lower()
+
+    def test_rate_limit_negative_raises_valueerror(self):
+        """CV2-RATE-009: rate_limit=-1 → ValueError"""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2(api_key="test_api_key", rate_limit=-1)
+        assert "rate_limit" in str(exc_info.value).lower()
+
+    def test_max_workers_zero_raises_valueerror(self):
+        """CV2-RATE-009: max_workers=0 → ValueError"""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2(api_key="test_api_key", max_workers=0)
+        assert "max_workers" in str(exc_info.value).lower()
+
+    def test_max_workers_negative_raises_valueerror(self):
+        """CV2-RATE-009: max_workers=-1 → ValueError"""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2(api_key="test_api_key", max_workers=-1)
+        assert "max_workers" in str(exc_info.value).lower()
+
+    def test_retry_wait_seconds_zero_raises_valueerror(self):
+        """CV2-RATE-009: retry_wait_seconds=0 → ValueError"""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2(api_key="test_api_key", retry_wait_seconds=0)
+        assert "retry_wait_seconds" in str(exc_info.value).lower()
+
+    def test_retry_wait_seconds_negative_raises_valueerror(self):
+        """CV2-RATE-009: retry_wait_seconds=-1 → ValueError"""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2(api_key="test_api_key", retry_wait_seconds=-1)
+        assert "retry_wait_seconds" in str(exc_info.value).lower()
+
+    def test_retry_max_attempts_negative_raises_valueerror(self):
+        """CV2-RATE-009: retry_max_attempts=-1 → ValueError"""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2(api_key="test_api_key", retry_max_attempts=-1)
+        assert "retry_max_attempts" in str(exc_info.value).lower()
+
+    def test_retry_max_attempts_zero_is_valid(self):
+        """CV2-RATE-009: retry_max_attempts=0 → 有効（リトライ無効化）"""
+        from jquants import ClientV2
+
+        # retry_max_attempts=0 は「リトライしない」を意味するので有効
+        client = ClientV2(api_key="test_api_key", retry_max_attempts=0)
+        assert client._retry_max_attempts == 0
