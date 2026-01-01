@@ -90,6 +90,7 @@ class TestPacerFirstWait:
         assert elapsed < 0.1
 
 
+@pytest.mark.slow
 class TestPacerConsecutiveWait:
     """Test Pacer consecutive wait behavior (PACER-005)."""
 
@@ -130,6 +131,7 @@ class TestPacerConsecutiveWait:
         assert total_elapsed >= 0.9
 
 
+@pytest.mark.slow
 class TestPacerElapsedTime:
     """Test Pacer elapsed time consideration (PACER-006)."""
 
@@ -191,6 +193,7 @@ class TestPacerReset:
         assert elapsed < 0.1
 
 
+@pytest.mark.slow
 class TestPacerThreadSafety:
     """Test Pacer thread safety (PACER-008)."""
 

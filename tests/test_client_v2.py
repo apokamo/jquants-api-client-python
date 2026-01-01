@@ -492,7 +492,8 @@ class TestClientV2HTTPSession:
         retry = adapter.max_retries
 
         assert retry.total == 3
-        assert 429 in retry.status_forcelist
+        # 429 is excluded from urllib3 retry for custom retry logic
+        assert 429 not in retry.status_forcelist
         assert 500 in retry.status_forcelist
         assert 502 in retry.status_forcelist
         assert 503 in retry.status_forcelist
@@ -693,7 +694,8 @@ class TestClientV2ErrorHandling:
         """R004: 429 should raise JQuantsRateLimitError."""
         from jquants import ClientV2
 
-        client = ClientV2(api_key="test_api_key")
+        # retry_on_429=False で即座に例外を発生させる
+        client = ClientV2(api_key="test_api_key", retry_on_429=False)
 
         with patch.object(client, "_request_session") as mock_session_method:
             mock_session = MagicMock()

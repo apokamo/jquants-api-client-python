@@ -56,6 +56,7 @@ class TestRateLimiterCustomRate:
         assert client._pacer.interval == pytest.approx(0.5, rel=1e-6)
 
 
+@pytest.mark.slow
 class TestRateLimiterPacing:
     """Test rate limiter pacing behavior (RATE-003)."""
 
@@ -135,6 +136,7 @@ class TestRateLimiter429Retry:
         assert client._retry_max_attempts == 2
 
 
+@pytest.mark.slow
 class TestRateLimiterParallel:
     """Test parallel execution (RATE-007, RATE-008)."""
 
@@ -184,7 +186,8 @@ class TestRateLimiter429Integration:
         """429レスポンスでJQuantsRateLimitErrorが発生"""
         from jquants import ClientV2
 
-        client = ClientV2(api_key="test_api_key")
+        # retry_on_429=False で即座に例外を発生させる
+        client = ClientV2(api_key="test_api_key", retry_on_429=False)
 
         with patch.object(client, "_request_session") as mock_session_method:
             mock_session = MagicMock()
@@ -201,6 +204,7 @@ class TestRateLimiter429Integration:
 
             assert exc_info.value.status_code == 429
 
+    @pytest.mark.slow
     def test_pacer_works_between_requests(self):
         """Pacerがリクエスト間で動作することを確認"""
         from jquants import ClientV2
@@ -255,3 +259,150 @@ class TestRateLimiterAllParametersCombined:
         assert client._retry_wait_seconds == 310
         # 最大3回リトライ
         assert client._retry_max_attempts == 3
+
+
+class TestRequestPathIntegration:
+    """Test _request path integration with pacing and 429 retry."""
+
+    def test_request_calls_pacer_wait_on_success(self):
+        """_request成功時にPacer.wait()が1回呼ばれる"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", rate_limit=120)
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = MagicMock()
+            mock_response.ok = True
+            mock_response.status_code = 200
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with patch.object(client._pacer, "wait", return_value=0.0) as mock_wait:
+                client._request("GET", "/test")
+
+                # 成功時はwait()が1回呼ばれる（リトライなし）
+                mock_wait.assert_called_once()
+
+    def test_429_retry_then_success(self):
+        """429 → wait → 再試行 → 成功"""
+        from jquants import ClientV2
+
+        client = ClientV2(
+            api_key="test_api_key",
+            retry_on_429=True,
+            retry_wait_seconds=0.01,  # テスト用に短縮
+            retry_max_attempts=3,
+        )
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+
+            # 1回目: 429, 2回目: 200
+            mock_response_429 = MagicMock()
+            mock_response_429.ok = False
+            mock_response_429.status_code = 429
+            mock_response_429.text = '{"message": "Rate limit exceeded"}'
+            mock_response_429.json.return_value = {"message": "Rate limit exceeded"}
+
+            mock_response_200 = MagicMock()
+            mock_response_200.ok = True
+            mock_response_200.status_code = 200
+
+            mock_session.request.side_effect = [mock_response_429, mock_response_200]
+            mock_session_method.return_value = mock_session
+
+            with patch.object(client._pacer, "wait", return_value=0.0) as mock_wait:
+                with patch("time.sleep") as mock_sleep:
+                    response = client._request("GET", "/test")
+
+                    # 成功レスポンスが返る
+                    assert response.status_code == 200
+                    # time.sleepが1回呼ばれる（リトライ待機）
+                    mock_sleep.assert_called_once_with(0.01)
+                    # sessionが2回呼ばれる（初回 + リトライ）
+                    assert mock_session.request.call_count == 2
+                    # wait()が2回呼ばれる（各試行前にpacing適用）
+                    assert mock_wait.call_count == 2
+                    # 429レスポンスがcloseされる（接続プール解放）
+                    mock_response_429.close.assert_called_once()
+
+    def test_429_retry_disabled_raises_immediately(self):
+        """429 + retry_on_429=False → 即例外"""
+        from jquants import ClientV2
+
+        client = ClientV2(
+            api_key="test_api_key",
+            retry_on_429=False,
+        )
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = MagicMock()
+            mock_response.ok = False
+            mock_response.status_code = 429
+            mock_response.text = '{"message": "Rate limit exceeded"}'
+            mock_response.json.return_value = {"message": "Rate limit exceeded"}
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with patch.object(client._pacer, "wait", return_value=0.0):
+                with patch("time.sleep") as mock_sleep:
+                    with pytest.raises(JQuantsRateLimitError) as exc_info:
+                        client._request("GET", "/test")
+
+                    assert exc_info.value.status_code == 429
+                    # time.sleepは呼ばれない（即例外）
+                    mock_sleep.assert_not_called()
+                    # sessionは1回のみ
+                    assert mock_session.request.call_count == 1
+
+    def test_429_retry_max_attempts_exceeded_raises(self):
+        """429 + retry_max_attempts超過 → 例外"""
+        from jquants import ClientV2
+
+        client = ClientV2(
+            api_key="test_api_key",
+            retry_on_429=True,
+            retry_wait_seconds=0.01,
+            retry_max_attempts=2,
+        )
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+            mock_response = MagicMock()
+            mock_response.ok = False
+            mock_response.status_code = 429
+            mock_response.text = '{"message": "Rate limit exceeded"}'
+            mock_response.json.return_value = {"message": "Rate limit exceeded"}
+            mock_session.request.return_value = mock_response
+            mock_session_method.return_value = mock_session
+
+            with patch.object(client._pacer, "wait", return_value=0.0):
+                with patch("time.sleep") as mock_sleep:
+                    with pytest.raises(JQuantsRateLimitError) as exc_info:
+                        client._request("GET", "/test")
+
+                    assert exc_info.value.status_code == 429
+                    # time.sleepが2回呼ばれる（リトライ2回分）
+                    assert mock_sleep.call_count == 2
+                    # sessionが3回呼ばれる（初回 + リトライ2回）
+                    assert mock_session.request.call_count == 3
+
+    def test_connection_pool_uses_max_workers(self):
+        """接続プールに_max_workersが反映される"""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", max_workers=8)
+
+        # セッション作成前は None
+        assert client._session is None
+
+        # セッション取得
+        session = client._request_session()
+
+        # アダプタの設定を確認
+        adapter = session.get_adapter("https://")
+        # pool_connections と pool_maxsize が _max_workers + 10 であること
+        assert adapter._pool_connections == 18  # 8 + 10
+        assert adapter._pool_maxsize == 18  # 8 + 10

@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import sys
+import time
 import tomllib
 import warnings
 from pathlib import Path
@@ -230,18 +231,19 @@ class ClientV2:
         Note:
             POST is excluded from allowed_methods to prevent
             duplicate side effects on retry.
+            429 is excluded from status_forcelist to use custom retry logic.
         """
         if self._session is None:
             retry_strategy = Retry(
                 total=3,
-                status_forcelist=[429, 500, 502, 503, 504],
+                status_forcelist=[500, 502, 503, 504],  # 429 excluded for custom retry
                 allowed_methods=["HEAD", "GET", "OPTIONS"],  # POST excluded
                 backoff_factor=0.5,  # Retry-After無しの場合のbackoff
                 respect_retry_after_header=True,
             )
             adapter = HTTPAdapter(
-                pool_connections=self.MAX_WORKERS + 10,
-                pool_maxsize=self.MAX_WORKERS + 10,
+                pool_connections=self._max_workers + 10,
+                pool_maxsize=self._max_workers + 10,
                 max_retries=retry_strategy,
             )
             self._session = requests.Session()
@@ -310,6 +312,9 @@ class ClientV2:
         except (ValueError, TypeError):
             message = response_body or f"HTTP {status_code}"
 
+        # Close response to release connection back to pool before raising
+        response.close()
+
         if status_code == 403:
             raise JQuantsForbiddenError(message, status_code, response_body)
         elif status_code == 429:
@@ -326,7 +331,7 @@ class ClientV2:
         json_data: Optional[dict] = None,
     ) -> requests.Response:
         """
-        Send HTTP request with proper headers and timeout.
+        Send HTTP request with proper headers, timeout, and rate limiting.
 
         Args:
             method: HTTP method ("GET" or "POST")
@@ -347,19 +352,42 @@ class ClientV2:
         url = f"{self.JQUANTS_API_BASE}{path}"
         session = self._request_session()
 
-        response = session.request(
-            method,
-            url,
-            params=params,
-            json=json_data,
-            headers=self._base_headers(),
-            timeout=self.REQUEST_TIMEOUT,
+        # 429 retry loop with rate limiting on each attempt
+        for attempt in range(self._retry_max_attempts + 1):
+            # Rate limiting: wait before each request (including retries)
+            self._pacer.wait()
+
+            response = session.request(
+                method,
+                url,
+                params=params,
+                json=json_data,
+                headers=self._base_headers(),
+                timeout=self.REQUEST_TIMEOUT,
+            )
+
+            if response.status_code == 429:
+                # Check if retry is disabled or max attempts reached
+                is_last_attempt = attempt >= self._retry_max_attempts
+                if not self._retry_on_429 or is_last_attempt:
+                    self._handle_error_response(response)
+                # Close response to release connection back to pool
+                response.close()
+                # Wait and retry
+                time.sleep(self._retry_wait_seconds)
+                continue
+
+            if not response.ok:
+                self._handle_error_response(response)
+
+            return response
+
+        # Should not reach here, but handle edge case
+        raise JQuantsAPIError(
+            "Unexpected error: retry loop exited without response",
+            status_code=None,
+            response_body=None,
         )
-
-        if not response.ok:
-            self._handle_error_response(response)
-
-        return response
 
     def _get_raw(
         self,
