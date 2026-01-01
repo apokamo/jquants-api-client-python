@@ -63,11 +63,14 @@ skip_glob = ["**/node_modules/**"]
 [tool.pytest.ini_options]
 markers = [
     "integration: marks tests as integration tests requiring API key (run with 'pytest -m integration')",
+    "slow: marks tests as slow (run with 'pytest -m slow' or 'pytest --run-slow')",
 ]
 testpaths = ["tests"]
-# Exclude integration tests by default (they require API key and network access)
-# Run integration tests explicitly: pytest -m integration
-addopts = "-v -m 'not integration'"
+# Exclude integration and slow tests by default
+# Run slow tests: pytest --run-slow (or pytest -m slow)
+# Run integration tests: pytest -m integration
+# Run all tests: pytest --run-slow -m ''
+addopts = "-v -m 'not integration and not slow'"
 
 [tool.coverage.run]
 omit = [
