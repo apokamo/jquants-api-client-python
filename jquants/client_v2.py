@@ -7,15 +7,18 @@ import sys
 import time
 import tomllib
 import warnings
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date as date_type
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
-from jquants import __version__
+from jquants import __version__, constants_v2
 from jquants.exceptions import (
     JQuantsAPIError,
     JQuantsForbiddenError,
@@ -551,3 +554,199 @@ class ClientV2:
                 df = df.sort_values(sort_cols_existing).reset_index(drop=True)
 
         return df
+
+    # =========================================================================
+    # Equities - Standard Endpoints
+    # =========================================================================
+
+    def get_listed_info(
+        self,
+        code: str = "",
+        date: str = "",
+    ) -> pd.DataFrame:
+        """
+        銘柄マスター情報を取得する。
+
+        Args:
+            code: 銘柄コード（省略時: 全銘柄）
+            date: 基準日 YYYY-MM-DD or YYYYMMDD（省略時: 最新）
+
+        Returns:
+            pd.DataFrame: 銘柄マスター（Code昇順でソート）
+        """
+        params: dict = {}
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+
+        data = self._paginated_get("/equities/master", params)
+        return self._to_dataframe(
+            data,
+            constants_v2.EQUITIES_MASTER_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Code"],
+        )
+
+    def get_prices_daily_quotes(
+        self,
+        code: str = "",
+        date: str = "",
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        株価四本値を取得する。
+
+        Args:
+            code: 銘柄コード（4桁: 普通株式のみ）
+            date: 日付 YYYY-MM-DD or YYYYMMDD（from/toなし時）
+            from_date: 期間開始日
+            to_date: 期間終了日
+
+        Returns:
+            pd.DataFrame: 株価四本値（Code, Date昇順でソート）
+
+        Raises:
+            ValueError: code または date のいずれも指定されていない場合
+            ValueError: date と from_date/to_date を同時に指定した場合
+
+        Note:
+            code または date のいずれかは必須。
+            date と from_date/to_date は排他（同時指定不可）。
+        """
+        if not code and not date:
+            raise ValueError(
+                "Either 'code' or 'date' is required for get_prices_daily_quotes()"
+            )
+
+        # date と from_date/to_date は排他
+        if date and (from_date or to_date):
+            raise ValueError(
+                "'date' and 'from_date'/'to_date' are mutually exclusive. "
+                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+            )
+
+        params: dict = {}
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/equities/bars/daily", params)
+        return self._to_dataframe(
+            data,
+            constants_v2.EQUITIES_BARS_DAILY_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Code", "Date"],
+        )
+
+    def get_fins_announcement(self) -> pd.DataFrame:
+        """
+        決算発表日程を取得する。
+
+        Returns:
+            pd.DataFrame: 決算発表日程（Date, Code昇順でソート）
+        """
+        data = self._paginated_get("/equities/earnings-calendar", {})
+        return self._to_dataframe(
+            data,
+            constants_v2.EQUITIES_EARNINGS_CALENDAR_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Date", "Code"],
+        )
+
+    def get_price_range(
+        self,
+        start_dt: Union[str, datetime, date_type],
+        end_dt: Optional[Union[str, datetime, date_type]] = None,
+    ) -> pd.DataFrame:
+        """
+        日付範囲で株価四本値を取得する。
+
+        Args:
+            start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）
+            end_dt: 終了日（YYYY-MM-DD文字列, date, または datetime。省略時: 今日）
+
+        Returns:
+            pd.DataFrame: 株価四本値（Code, Date昇順でソート）
+
+        Raises:
+            ValueError: start_dt > end_dt の場合
+
+        Note:
+            - 日付文字列は YYYY-MM-DD 形式のみ対応（YYYYMMDD は ValueError）
+            - max_workers == 1: 直列取得
+            - max_workers > 1: 並列取得（Pacer制御下）
+        """
+        # Normalize dates to strings
+        start_str = self._normalize_date(start_dt)
+        if end_dt is None:
+            end_str = date_type.today().isoformat()
+        else:
+            end_str = self._normalize_date(end_dt)
+
+        # Validate date range
+        if start_str > end_str:
+            raise ValueError(
+                f"start_dt ({start_str}) must not be after end_dt ({end_str})"
+            )
+
+        # Generate date list
+        dates = self._generate_date_range(start_str, end_str)
+
+        # Fetch data
+        if self._max_workers == 1:
+            # Sequential execution
+            dfs = [self.get_prices_daily_quotes(date=d) for d in dates]
+        else:
+            # Parallel execution with ThreadPoolExecutor
+            def fetch_date(d: str) -> pd.DataFrame:
+                return self.get_prices_daily_quotes(date=d)
+
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                dfs = list(executor.map(fetch_date, dates))
+
+        # Combine results
+        if not dfs or all(df.empty for df in dfs):
+            return pd.DataFrame(columns=constants_v2.EQUITIES_BARS_DAILY_COLUMNS)
+
+        result = pd.concat(dfs, ignore_index=True)
+
+        # Sort by Code, Date
+        sort_cols = [c for c in ["Code", "Date"] if c in result.columns]
+        if sort_cols:
+            result = result.sort_values(sort_cols).reset_index(drop=True)
+
+        return result
+
+    def _normalize_date(
+        self,
+        dt: Union[str, datetime, date_type],
+    ) -> str:
+        """Convert date/datetime/string to YYYY-MM-DD string."""
+        if isinstance(dt, datetime):
+            return dt.date().isoformat()
+        elif isinstance(dt, date_type):
+            return dt.isoformat()
+        else:
+            return str(dt)
+
+    def _generate_date_range(self, start: str, end: str) -> list[str]:
+        """Generate list of YYYY-MM-DD strings from start to end (inclusive)."""
+        from datetime import timedelta
+
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+
+        dates = []
+        current = start_date
+        while current <= end_date:
+            dates.append(current.isoformat())
+            current += timedelta(days=1)
+
+        return dates

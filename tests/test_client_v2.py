@@ -999,7 +999,7 @@ class TestClientV2RetrySettings:
         assert adapter.max_retries.total == 3
 
     def test_status_forcelist_contains_required_codes(self):
-        """S002: status_forcelist should contain 429, 500, 502, 503, 504."""
+        """S002: status_forcelist should contain 500, 502, 503, 504 (429 excluded for custom retry)."""
         from jquants import ClientV2
 
         client = ClientV2(api_key="test_api_key")
@@ -1007,7 +1007,8 @@ class TestClientV2RetrySettings:
         adapter = session.get_adapter("https://example.com")
         forcelist = adapter.max_retries.status_forcelist
 
-        assert 429 in forcelist
+        # 429 is excluded from urllib3 retry for custom retry logic
+        assert 429 not in forcelist
         assert 500 in forcelist
         assert 502 in forcelist
         assert 503 in forcelist
