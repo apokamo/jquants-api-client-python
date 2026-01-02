@@ -77,8 +77,12 @@ class TestMarketsIntegration:
 
     @requires_api_key
     def test_get_markets_short_selling(self, client):
-        """Test get_markets_short_selling returns valid DataFrame."""
+        """Test get_markets_short_selling returns valid DataFrame.
+
+        Note: V2 API requires 'date' or 's33' parameter.
+        """
         df = client.get_markets_short_selling(
+            sector_33_code="0050",
             from_date="2024-01-01",
             to_date="2024-01-05",
         )
@@ -107,6 +111,7 @@ class TestMarketsIntegration:
             assert all(df["S33"] == "0050")
 
     @requires_api_key
+    @pytest.mark.skip(reason="Requires Premium or higher subscription plan")
     def test_get_markets_breakdown(self, client):
         """Test get_markets_breakdown returns valid DataFrame."""
         df = client.get_markets_breakdown(
@@ -126,10 +131,14 @@ class TestMarketsIntegration:
 
     @requires_api_key
     def test_get_markets_short_selling_positions(self, client):
-        """Test get_markets_short_selling_positions returns valid DataFrame."""
+        """Test get_markets_short_selling_positions returns valid DataFrame.
+
+        Note: V2 API requires 'code' when using disc_date_from/disc_date_to.
+        """
         df = client.get_markets_short_selling_positions(
+            code="72030",
             disc_date_from="2024-01-01",
-            disc_date_to="2024-01-05",
+            disc_date_to="2024-01-31",
         )
 
         assert isinstance(df, pd.DataFrame)
@@ -142,16 +151,20 @@ class TestMarketsIntegration:
             # Verify DiscDate is within specified range (filter validation)
             if "DiscDate" in df.columns:
                 min_date = pd.Timestamp("2024-01-01")
-                max_date = pd.Timestamp("2024-01-05")
+                max_date = pd.Timestamp("2024-01-31")
                 assert df["DiscDate"].min() >= min_date, "DiscDate below range"
                 assert df["DiscDate"].max() <= max_date, "DiscDate above range"
 
     @requires_api_key
     def test_get_markets_daily_margin_interest(self, client):
-        """Test get_markets_daily_margin_interest returns valid DataFrame."""
+        """Test get_markets_daily_margin_interest returns valid DataFrame.
+
+        Note: V2 API requires 'code' when using from_date/to_date.
+        """
         df = client.get_markets_daily_margin_interest(
+            code="72030",
             from_date="2024-01-01",
-            to_date="2024-01-05",
+            to_date="2024-01-31",
         )
 
         assert isinstance(df, pd.DataFrame)

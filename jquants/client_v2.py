@@ -747,7 +747,7 @@ class ClientV2:
         """
         params: dict[str, str] = {}
         if holiday_division:
-            params["holidaydivision"] = holiday_division
+            params["hol_div"] = holiday_division
         if from_date:
             params["from"] = from_date
         if to_date:
@@ -819,6 +819,10 @@ class ClientV2:
     ) -> pd.DataFrame:
         """
         業種別空売り比率を取得する。
+
+        Note:
+            V2 API仕様では `date` または `sector_33_code` のいずれかが必須です。
+            `from_date`/`to_date` 単独では使用できません。
 
         Args:
             sector_33_code: 33業種コード（省略時: 全業種）
@@ -924,6 +928,8 @@ class ClientV2:
             - disc_date: 公表日
             - disc_date_from/disc_date_to: 公表日範囲（他エンドポイントの from/to に相当）
 
+            **重要**: `disc_date_from`/`disc_date_to` を使用する場合は `code` が必須です。
+
         Args:
             code: 銘柄コード（省略時: 全銘柄）
             calc_date: 算出日 YYYY-MM-DD
@@ -974,6 +980,10 @@ class ClientV2:
     ) -> pd.DataFrame:
         """
         信用取引残高（日々公表分）を取得する。
+
+        Note:
+            V2 API仕様では `code` または `date` のいずれかが必須です。
+            `from_date`/`to_date` を使用する場合は `code` が必須です。
 
         Args:
             code: 銘柄コード（省略時: 全銘柄）

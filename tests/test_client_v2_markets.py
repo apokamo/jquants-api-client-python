@@ -88,7 +88,7 @@ class TestGetMarketsTradingCalendar:
 
             mock_get.assert_called_once()
             call_kwargs = mock_get.call_args[1]
-            assert call_kwargs["params"]["holidaydivision"] == "1"
+            assert call_kwargs["params"]["hol_div"] == "1"
 
     def test_from_date_parameter_passed(self):
         """from_date parameter should be passed to API."""
@@ -127,7 +127,7 @@ class TestGetMarketsTradingCalendar:
 
             mock_get.assert_called_once()
             call_kwargs = mock_get.call_args[1]
-            assert "holidaydivision" not in call_kwargs["params"]
+            assert "hol_div" not in call_kwargs["params"]
             assert "from" not in call_kwargs["params"]
             assert "to" not in call_kwargs["params"]
 
