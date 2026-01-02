@@ -1064,3 +1064,100 @@ class ClientV2:
             current += timedelta(days=1)
 
         return dates
+
+    # =========================================================================
+    # Indices endpoints
+    # =========================================================================
+
+    def get_indices(
+        self,
+        code: str = "",
+        date: str = "",
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        指数四本値を取得する。
+
+        Args:
+            code: 指数コード（省略時: 全指数）
+            date: 基準日 YYYY-MM-DD or YYYYMMDD
+            from_date: 期間開始日
+            to_date: 期間終了日
+
+        Returns:
+            pd.DataFrame: 指数四本値（Date, Code昇順でソート）
+
+        Raises:
+            ValueError: code または date のいずれも指定されていない場合
+            ValueError: date と from_date/to_date を同時に指定した場合
+
+        Note:
+            公式仕様 (https://jpx-jquants.com/ja/spec/idx-bars-daily) の
+            「パラメータ及びレスポンス」セクションに以下の記載があります:
+            「データの取得する際には、指数コード（code）または日付（date）の
+            指定が必須となります。」
+            from/to は code と組み合わせて使用し、単独では使用できません。
+            date と from_date/to_date は排他（同時指定不可）。
+        """
+        if not code and not date:
+            raise ValueError("Either 'code' or 'date' is required for get_indices()")
+
+        # date と from_date/to_date は排他
+        if date and (from_date or to_date):
+            raise ValueError(
+                "'date' and 'from_date'/'to_date' are mutually exclusive. "
+                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+            )
+
+        params: dict[str, str] = {}
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/indices/bars/daily", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.INDICES_BARS_DAILY_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Date", "Code"],
+        )
+
+    def get_indices_topix(
+        self,
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        TOPIX指数四本値を取得する。
+
+        Args:
+            from_date: 期間開始日 YYYY-MM-DD
+            to_date: 期間終了日 YYYY-MM-DD
+
+        Returns:
+            pd.DataFrame: TOPIX指数四本値（Date, Code昇順でソート）
+
+        Note:
+            パラメータ省略時は全期間データを取得。
+        """
+        params: dict[str, str] = {}
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/indices/bars/daily/topix", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.INDICES_BARS_DAILY_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Date", "Code"],
+        )

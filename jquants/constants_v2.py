@@ -275,3 +275,21 @@ MARKETS_MARGIN_ALERT_COLUMNS = [
     "LongStdOutChg",
     "TSEMrgnRegCls",
 ]
+
+# =============================================================================
+# Indices endpoints
+# =============================================================================
+
+# indices/bars/daily - 指数四本値
+# indices/bars/daily/topix - TOPIX指数四本値
+# ref: https://jpx-jquants.com/ja/spec/idx-bars-daily
+# ref: https://jpx-jquants.com/ja/spec/idx-bars-daily-topix
+# Note: Both endpoints share the same response schema
+INDICES_BARS_DAILY_COLUMNS = [
+    "Date",
+    "Code",
+    "O",
+    "H",
+    "L",
+    "C",
+]
