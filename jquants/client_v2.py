@@ -537,8 +537,14 @@ class ClientV2:
             sort_columns for clarity and maintainability.
         """
         if not data:
-            # Return empty DataFrame with expected columns
-            return pd.DataFrame(columns=columns)
+            # Return empty DataFrame with expected columns and proper dtypes
+            df = pd.DataFrame(columns=columns)
+            # Ensure date columns have datetime dtype even when empty
+            if date_columns:
+                for col in date_columns:
+                    if col in df.columns:
+                        df[col] = pd.to_datetime(df[col])
+            return df
 
         df = pd.DataFrame(data)
 
@@ -551,13 +557,14 @@ class ClientV2:
             existing_columns = [c for c in columns if c in df.columns]
             df = df[existing_columns]
 
-        # Convert date columns (empty string/None -> NaT)
+        # Convert date columns (empty string/None/invalid -> NaT)
         if date_columns:
             for col in date_columns:
                 if col in df.columns:
                     # Replace empty strings with None first for proper NaT conversion
                     df[col] = df[col].replace("", None)
-                    df[col] = pd.to_datetime(df[col])
+                    # Use errors="coerce" to handle unexpected formats like "0000-00-00"
+                    df[col] = pd.to_datetime(df[col], errors="coerce")
 
         # Sort
         if sort_columns:
@@ -1154,14 +1161,23 @@ class ClientV2:
         else:
             end_str = self._normalize_date(end_dt)
 
-        # Validate date range
+        # Validate date format FIRST (before range comparison)
+        # _generate_date_range will raise ValueError for invalid format like YYYYMMDD
+        try:
+            dates = self._generate_date_range(start_str, end_str)
+        except ValueError as e:
+            # Re-raise with clearer message if it's a format error
+            if "does not match format" in str(e):
+                raise ValueError(
+                    f"Invalid date format. Use YYYY-MM-DD, not YYYYMMDD: {e}"
+                ) from e
+            raise
+
+        # Validate date range (after format validation)
         if start_str > end_str:
             raise ValueError(
                 f"start_dt ({start_str}) must not be after end_dt ({end_str})"
             )
-
-        # Generate date list (will raise ValueError for YYYYMMDD format)
-        dates = self._generate_date_range(start_str, end_str)
 
         # Fetch data
         if self._max_workers == 1:
@@ -1178,7 +1194,13 @@ class ClientV2:
         # Combine results (filter empty DataFrames to avoid FutureWarning)
         non_empty_dfs = [df for df in dfs if not df.empty]
         if not non_empty_dfs:
-            return pd.DataFrame(columns=constants_v2.FINS_SUMMARY_COLUMNS)
+            # Use _to_dataframe to ensure consistent dtype for date columns
+            return self._to_dataframe(
+                [],
+                constants_v2.FINS_SUMMARY_COLUMNS,
+                date_columns=constants_v2.FINS_SUMMARY_DATE_COLUMNS,
+                ensure_all_columns=True,
+            )
 
         result = pd.concat(non_empty_dfs, ignore_index=True)
 

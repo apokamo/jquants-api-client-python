@@ -111,6 +111,105 @@ class TestToDataframeDateNaT:
 
         assert result["DiscDate"].iloc[0] == pd.Timestamp("2024-01-15")
 
+    def test_invalid_date_coerced_to_nat(self):
+        """Invalid date like '0000-00-00' should become NaT with errors='coerce'."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Code": "1301", "DiscDate": "0000-00-00"}]
+        columns = ["Code", "DiscDate"]
+
+        result = client._to_dataframe(
+            data, columns, date_columns=["DiscDate"], ensure_all_columns=True
+        )
+
+        assert pd.isna(result["DiscDate"].iloc[0])
+
+
+class TestFinsSummaryColumnsSpec:
+    """Test FINS_SUMMARY_COLUMNS against fixed specification.
+
+    These tests use fixed expected values to detect accidental column omissions
+    that would otherwise go unnoticed if only self-referencing constants.
+    """
+
+    # Core columns that MUST exist (fixed specification, not from constants)
+    REQUIRED_CORE_COLUMNS = [
+        "DiscDate",
+        "DiscTime",
+        "Code",
+        "DiscNo",
+        "DocType",
+        "CurPerType",
+        "CurPerSt",
+        "CurPerEn",
+    ]
+
+    REQUIRED_CONSOLIDATED_COLUMNS = [
+        "Sales",
+        "OP",
+        "OdP",
+        "NP",
+        "EPS",
+        "DEPS",
+        "TA",
+        "Eq",
+        "EqAR",
+        "BPS",
+    ]
+
+    REQUIRED_NON_CONSOLIDATED_COLUMNS = [
+        "NCSales",
+        "NCOP",
+        "NCOdP",
+        "NCNP",
+        "NCEPS",
+        "NCTA",
+        "NCEq",
+        "NCEqAR",
+        "NCBPS",
+    ]
+
+    def test_core_columns_in_definition(self):
+        """Core columns must be present in FINS_SUMMARY_COLUMNS."""
+        for col in self.REQUIRED_CORE_COLUMNS:
+            assert (
+                col in constants_v2.FINS_SUMMARY_COLUMNS
+            ), f"Core column '{col}' missing from FINS_SUMMARY_COLUMNS"
+
+    def test_consolidated_columns_in_definition(self):
+        """Consolidated performance columns must be present."""
+        for col in self.REQUIRED_CONSOLIDATED_COLUMNS:
+            assert (
+                col in constants_v2.FINS_SUMMARY_COLUMNS
+            ), f"Consolidated column '{col}' missing from FINS_SUMMARY_COLUMNS"
+
+    def test_non_consolidated_columns_in_definition(self):
+        """Non-consolidated performance columns must be present (per official spec)."""
+        for col in self.REQUIRED_NON_CONSOLIDATED_COLUMNS:
+            assert (
+                col in constants_v2.FINS_SUMMARY_COLUMNS
+            ), f"Non-consolidated column '{col}' missing from FINS_SUMMARY_COLUMNS"
+
+    def test_ncdeps_not_in_official_spec(self):
+        """NCDEPS is NOT in official API spec (unlike Issue#21 description).
+
+        The official J-Quants API does not return NCDEPS for non-consolidated data.
+        This test documents that our implementation correctly follows the official spec,
+        not the erroneous Issue description.
+        """
+        # NCDEPS should NOT be in the columns (it's not in official API spec)
+        assert "NCDEPS" not in constants_v2.FINS_SUMMARY_COLUMNS
+
+    def test_nxfdivtotalann_not_in_official_spec(self):
+        """NxFDivTotalAnn is NOT in official API spec.
+
+        While FDivTotalAnn exists, NxFDivTotalAnn does not exist in the official spec.
+        """
+        assert "NxFDivTotalAnn" not in constants_v2.FINS_SUMMARY_COLUMNS
+        # But FDivTotalAnn should exist
+        assert "FDivTotalAnn" in constants_v2.FINS_SUMMARY_COLUMNS
+
 
 class TestGetFinsSummary:
     """Test get_fins_summary() method."""
@@ -435,6 +534,25 @@ class TestGetSummaryRange:
 
             assert len(result) == 0
             assert list(result.columns) == constants_v2.FINS_SUMMARY_COLUMNS
+
+    def test_empty_range_has_consistent_date_dtypes(self):
+        """Empty DataFrame should have datetime dtype for date columns (not object)."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "get_fins_summary") as mock_get:
+            # Return empty DataFrame from each call
+            mock_get.return_value = pd.DataFrame(
+                columns=constants_v2.FINS_SUMMARY_COLUMNS
+            )
+            result = client.get_summary_range("2024-01-01", "2024-01-01")
+
+            # Even for empty DataFrame, date columns should have proper dtype
+            for col in constants_v2.FINS_SUMMARY_DATE_COLUMNS:
+                assert pd.api.types.is_datetime64_any_dtype(
+                    result[col]
+                ), f"Empty DataFrame column {col} should have datetime dtype"
 
     def test_max_workers_1_sequential_execution(self):
         """max_workers=1 should execute sequentially (default)."""
