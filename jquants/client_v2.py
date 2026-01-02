@@ -724,6 +724,320 @@ class ClientV2:
 
         return result
 
+    # =========================================================================
+    # Markets endpoints
+    # =========================================================================
+
+    def get_markets_trading_calendar(
+        self,
+        holiday_division: str = "",
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        取引カレンダーを取得する。
+
+        Args:
+            holiday_division: 休日区分（省略時: 全区分）
+            from_date: 取得開始日 YYYY-MM-DD
+            to_date: 取得終了日 YYYY-MM-DD
+
+        Returns:
+            pd.DataFrame: 取引カレンダー（Date昇順でソート）
+        """
+        params: dict[str, str] = {}
+        if holiday_division:
+            params["hol_div"] = holiday_division
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/markets/calendar", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.MARKETS_CALENDAR_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Date"],
+        )
+
+    def get_markets_weekly_margin_interest(
+        self,
+        code: str = "",
+        date: str = "",
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        信用取引週末残高を取得する。
+
+        Args:
+            code: 銘柄コード（省略時: 全銘柄）
+            date: 基準日 YYYY-MM-DD
+            from_date: 期間開始日 YYYY-MM-DD
+            to_date: 期間終了日 YYYY-MM-DD
+
+        Returns:
+            pd.DataFrame: 信用取引週末残高（Date, Code昇順でソート）
+
+        Raises:
+            ValueError: date と from_date/to_date を同時に指定した場合
+        """
+        # date と from_date/to_date は排他
+        if date and (from_date or to_date):
+            raise ValueError(
+                "'date' and 'from_date'/'to_date' are mutually exclusive. "
+                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+            )
+
+        params: dict[str, str] = {}
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/markets/margin-interest", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.MARKETS_MARGIN_INTEREST_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Date", "Code"],
+        )
+
+    def get_markets_short_selling(
+        self,
+        sector_33_code: str = "",
+        date: str = "",
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        業種別空売り比率を取得する。
+
+        Note:
+            V2 API仕様では `date` または `sector_33_code` のいずれかが必須です。
+            `from_date`/`to_date` 単独では使用できません。
+
+        Args:
+            sector_33_code: 33業種コード（省略時: 全業種）
+            date: 基準日 YYYY-MM-DD
+            from_date: 期間開始日 YYYY-MM-DD
+            to_date: 期間終了日 YYYY-MM-DD
+
+        Returns:
+            pd.DataFrame: 業種別空売り比率（Date, S33昇順でソート）
+
+        Raises:
+            ValueError: date と from_date/to_date を同時に指定した場合
+        """
+        # date と from_date/to_date は排他
+        if date and (from_date or to_date):
+            raise ValueError(
+                "'date' and 'from_date'/'to_date' are mutually exclusive. "
+                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+            )
+
+        params: dict[str, str] = {}
+        if sector_33_code:
+            params["s33"] = sector_33_code
+        if date:
+            params["date"] = date
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/markets/short-ratio", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.MARKETS_SHORT_RATIO_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Date", "S33"],
+        )
+
+    def get_markets_breakdown(
+        self,
+        code: str = "",
+        date: str = "",
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        売買内訳データを取得する。
+
+        Args:
+            code: 銘柄コード（省略時: 全銘柄）
+            date: 基準日 YYYY-MM-DD
+            from_date: 期間開始日 YYYY-MM-DD
+            to_date: 期間終了日 YYYY-MM-DD
+
+        Returns:
+            pd.DataFrame: 売買内訳データ（Date, Code昇順でソート）
+
+        Raises:
+            ValueError: date と from_date/to_date を同時に指定した場合
+        """
+        # date と from_date/to_date は排他
+        if date and (from_date or to_date):
+            raise ValueError(
+                "'date' and 'from_date'/'to_date' are mutually exclusive. "
+                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+            )
+
+        params: dict[str, str] = {}
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/markets/breakdown", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.MARKETS_BREAKDOWN_COLUMNS,
+            date_columns=["Date"],
+            sort_columns=["Date", "Code"],
+        )
+
+    def get_markets_short_selling_positions(
+        self,
+        code: str = "",
+        calc_date: str = "",
+        disc_date: str = "",
+        disc_date_from: str = "",
+        disc_date_to: str = "",
+    ) -> pd.DataFrame:
+        """
+        空売り残高報告を取得する。
+
+        Note:
+            V2 API仕様 (https://jpx-jquants.com/ja/spec/mkt-short-sale) では、
+            他のMarkets系エンドポイントと異なるパラメータ名が定義されています:
+            - calc_date: 算出日（他エンドポイントの date に相当）
+            - disc_date: 公表日
+            - disc_date_from/disc_date_to: 公表日範囲（他エンドポイントの from/to に相当）
+
+            **重要**: `disc_date_from`/`disc_date_to` を使用する場合は `code` が必須です。
+
+        Args:
+            code: 銘柄コード（省略時: 全銘柄）
+            calc_date: 算出日 YYYY-MM-DD
+            disc_date: 公表日 YYYY-MM-DD
+            disc_date_from: 公表日期間開始日 YYYY-MM-DD
+            disc_date_to: 公表日期間終了日 YYYY-MM-DD
+
+        Returns:
+            pd.DataFrame: 空売り残高報告（DiscDate, CalcDate, Code昇順でソート）
+
+        Raises:
+            ValueError: disc_date と disc_date_from/disc_date_to を同時に指定した場合
+        """
+        # disc_date と disc_date_from/disc_date_to は排他
+        if disc_date and (disc_date_from or disc_date_to):
+            raise ValueError(
+                "'disc_date' and 'disc_date_from'/'disc_date_to' are mutually exclusive. "
+                "Use 'disc_date' for single day, or 'disc_date_from'/'disc_date_to' for date range."
+            )
+
+        params: dict[str, str] = {}
+        if code:
+            params["code"] = code
+        if calc_date:
+            params["calc_date"] = calc_date
+        if disc_date:
+            params["disc_date"] = disc_date
+        if disc_date_from:
+            params["disc_date_from"] = disc_date_from
+        if disc_date_to:
+            params["disc_date_to"] = disc_date_to
+
+        data = self._paginated_get("/markets/short-sale-report", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.MARKETS_SHORT_SALE_REPORT_COLUMNS,
+            date_columns=["DiscDate", "CalcDate", "PrevRptDate"],
+            sort_columns=["DiscDate", "CalcDate", "Code"],
+        )
+
+    def get_markets_daily_margin_interest(
+        self,
+        code: str = "",
+        date: str = "",
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        信用取引残高（日々公表分）を取得する。
+
+        Note:
+            V2 API仕様では `code` または `date` のいずれかが必須です。
+            `from_date`/`to_date` を使用する場合は `code` が必須です。
+
+        Args:
+            code: 銘柄コード（省略時: 全銘柄）
+            date: 基準日 YYYY-MM-DD
+            from_date: 期間開始日 YYYY-MM-DD
+            to_date: 期間終了日 YYYY-MM-DD
+
+        Returns:
+            pd.DataFrame: 信用取引残高（PubDate, Code昇順でソート）
+
+        Raises:
+            ValueError: date と from_date/to_date を同時に指定した場合
+        """
+        # date と from_date/to_date は排他
+        if date and (from_date or to_date):
+            raise ValueError(
+                "'date' and 'from_date'/'to_date' are mutually exclusive. "
+                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+            )
+
+        params: dict[str, str] = {}
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/markets/margin-alert", params=params)
+
+        # Use json_normalize for nested PubReason
+        if not data:
+            return pd.DataFrame(columns=constants_v2.MARKETS_MARGIN_ALERT_COLUMNS)
+
+        df = pd.json_normalize(data)
+
+        # Apply column order (filter to existing columns)
+        cols = [c for c in constants_v2.MARKETS_MARGIN_ALERT_COLUMNS if c in df.columns]
+        df = df[cols]
+
+        # Convert date columns
+        for col in ["PubDate", "AppDate"]:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col])
+
+        # Sort
+        sort_cols = [c for c in ["PubDate", "Code"] if c in df.columns]
+        if sort_cols:
+            df = df.sort_values(sort_cols).reset_index(drop=True)
+
+        return df
+
     def _normalize_date(
         self,
         dt: Union[str, datetime, date_type],
