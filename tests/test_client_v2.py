@@ -1364,19 +1364,26 @@ class TestClientV2ToDataframe:
         assert result.iloc[0]["Code"] == "1302"
         assert result.iloc[1]["Code"] == "1301"
 
-    def test_date_conversion_failure_raises_exception(self):
-        """H019: _to_dataframe() should raise exception on invalid date format."""
+    def test_date_conversion_invalid_format_becomes_nat(self):
+        """H019: _to_dataframe() should convert invalid date to NaT (defensive).
+
+        Note: errors="coerce" is used for defensive programming, so invalid
+        date formats like "invalid-date-format" or "0000-00-00" become NaT
+        instead of raising exceptions. This ensures robustness against
+        unexpected API response formats.
+        """
+        import pandas as pd
+
         from jquants import ClientV2
 
         client = ClientV2(api_key="test_api_key")
         data = [{"Code": "1301", "Date": "invalid-date-format"}]
         columns = ["Code", "Date"]
 
-        # 方針: pd.to_datetime() の例外をそのまま素通しする
-        # pandasのDatetimeParserは ValueError または DateParseError を発生させる
-        # （DateParseError は pandas 2.0+ で ValueError のサブクラス）
-        with pytest.raises(ValueError):
-            client._to_dataframe(data, columns, date_columns=["Date"])
+        result = client._to_dataframe(data, columns, date_columns=["Date"])
+
+        # Invalid date should become NaT, not raise exception
+        assert pd.isna(result["Date"].iloc[0])
 
 
 class TestClientV2PaginatedGetJSONDecode:

@@ -514,15 +514,20 @@ class ClientV2:
         *,
         date_columns: list[str] | None = None,
         sort_columns: list[str] | None = None,
+        ensure_all_columns: bool = False,
     ) -> pd.DataFrame:
         """
         Convert list of dicts to DataFrame with proper formatting.
 
         Args:
             data: List of dictionaries from API response
-            columns: Expected column order (superset; missing columns ignored)
-            date_columns: Columns to convert to pd.Timestamp (None = no conversion)
+            columns: Expected column order (superset; missing columns ignored unless
+                     ensure_all_columns=True)
+            date_columns: Columns to convert to pd.Timestamp (None = no conversion).
+                         Empty strings and None values become pd.NaT.
             sort_columns: Columns to sort by (None = no sorting)
+            ensure_all_columns: If True, add missing columns as NaN to ensure
+                               all columns from definition are present.
 
         Returns:
             Formatted pandas DataFrame
@@ -532,20 +537,34 @@ class ClientV2:
             sort_columns for clarity and maintainability.
         """
         if not data:
-            # Return empty DataFrame with expected columns
-            return pd.DataFrame(columns=columns)
+            # Return empty DataFrame with expected columns and proper dtypes
+            df = pd.DataFrame(columns=columns)
+            # Ensure date columns have datetime dtype even when empty
+            if date_columns:
+                for col in date_columns:
+                    if col in df.columns:
+                        df[col] = pd.to_datetime(df[col])
+            return df
 
         df = pd.DataFrame(data)
 
-        # Reorder columns (only include existing columns)
-        existing_columns = [c for c in columns if c in df.columns]
-        df = df[existing_columns]
+        # Add missing columns and reorder in one operation
+        if ensure_all_columns:
+            # Use reindex to add missing columns as NaN and reorder
+            df = df.reindex(columns=columns)
+        else:
+            # Reorder columns (only include existing columns)
+            existing_columns = [c for c in columns if c in df.columns]
+            df = df[existing_columns]
 
-        # Convert date columns
+        # Convert date columns (empty string/None/invalid -> NaT)
         if date_columns:
             for col in date_columns:
                 if col in df.columns:
-                    df[col] = pd.to_datetime(df[col])
+                    # Replace empty strings with None first for proper NaT conversion
+                    df[col] = df[col].replace("", None)
+                    # Use errors="coerce" to handle unexpected formats like "0000-00-00"
+                    df[col] = pd.to_datetime(df[col], errors="coerce")
 
         # Sort
         if sort_columns:
@@ -1161,3 +1180,138 @@ class ClientV2:
             date_columns=["Date"],
             sort_columns=["Date", "Code"],
         )
+
+    # =========================================================================
+    # Financials endpoints
+    # =========================================================================
+
+    def get_fins_summary(
+        self,
+        code: str = "",
+        date: str = "",
+    ) -> pd.DataFrame:
+        """
+        決算短信サマリーを取得する。
+
+        Args:
+            code: 銘柄コード（4桁または5桁）
+            date: 開示日 YYYY-MM-DD or YYYYMMDD
+
+        Returns:
+            pd.DataFrame: 決算短信サマリー（DiscDate, DiscTime, Code昇順でソート）
+
+        Raises:
+            ValueError: code も date も指定されていない場合
+
+        Note:
+            code または date のいずれかは必須（API仕様）。
+            全カラムを常に返す（レスポンスに存在しないカラムは NaN）。
+        """
+        if not code and not date:
+            raise ValueError(
+                "Either 'code' or 'date' is required for get_fins_summary()"
+            )
+
+        params: dict[str, str] = {}
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+
+        data = self._paginated_get("/fins/summary", params)
+        return self._to_dataframe(
+            data,
+            constants_v2.FINS_SUMMARY_COLUMNS,
+            date_columns=constants_v2.FINS_SUMMARY_DATE_COLUMNS,
+            sort_columns=["DiscDate", "DiscTime", "Code"],
+            ensure_all_columns=True,
+        )
+
+    def get_summary_range(
+        self,
+        start_dt: Union[str, datetime, date_type],
+        end_dt: Optional[Union[str, datetime, date_type]] = None,
+    ) -> pd.DataFrame:
+        """
+        日付範囲で決算短信サマリーを取得する。
+
+        Args:
+            start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）
+            end_dt: 終了日（YYYY-MM-DD文字列, date, または datetime。省略時: 今日）
+
+        Returns:
+            pd.DataFrame: 決算短信サマリー（DiscDate, DiscTime, Code昇順でソート）
+
+        Raises:
+            ValueError: start_dt > end_dt の場合
+            ValueError: 日付文字列が YYYYMMDD 形式の場合
+
+        Note:
+            - 日付文字列は YYYY-MM-DD 形式のみ対応（YYYYMMDD は ValueError）
+            - max_workers == 1: 直列取得
+            - max_workers > 1: 並列取得（Pacer制御下）
+        """
+        # Normalize dates to strings
+        start_str = self._normalize_date(start_dt)
+        if end_dt is None:
+            end_str = date_type.today().isoformat()
+        else:
+            end_str = self._normalize_date(end_dt)
+
+        # Validate date format FIRST (before range comparison)
+        # _generate_date_range will raise ValueError for invalid format like YYYYMMDD
+        try:
+            dates = self._generate_date_range(start_str, end_str)
+        except ValueError as e:
+            # Re-raise with clearer message if it's a format error
+            if "does not match format" in str(e):
+                raise ValueError(
+                    f"Invalid date format. Use YYYY-MM-DD, not YYYYMMDD: {e}"
+                ) from e
+            raise
+
+        # Validate date range (after format validation)
+        if start_str > end_str:
+            raise ValueError(
+                f"start_dt ({start_str}) must not be after end_dt ({end_str})"
+            )
+
+        # Fetch data
+        if self._max_workers == 1:
+            # Sequential execution
+            dfs = [self.get_fins_summary(date=d) for d in dates]
+        else:
+            # Parallel execution with ThreadPoolExecutor
+            def fetch_date(d: str) -> pd.DataFrame:
+                return self.get_fins_summary(date=d)
+
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                dfs = list(executor.map(fetch_date, dates))
+
+        # Combine results (filter empty DataFrames to avoid FutureWarning)
+        non_empty_dfs = [df for df in dfs if not df.empty]
+        if not non_empty_dfs:
+            # Use _to_dataframe to ensure consistent dtype for date columns
+            return self._to_dataframe(
+                [],
+                constants_v2.FINS_SUMMARY_COLUMNS,
+                date_columns=constants_v2.FINS_SUMMARY_DATE_COLUMNS,
+                ensure_all_columns=True,
+            )
+
+        result = pd.concat(non_empty_dfs, ignore_index=True)
+
+        # Ensure all columns are present after concat
+        for col in constants_v2.FINS_SUMMARY_COLUMNS:
+            if col not in result.columns:
+                result[col] = pd.NA
+
+        # Reorder columns
+        result = result[constants_v2.FINS_SUMMARY_COLUMNS]
+
+        # Sort by DiscDate, DiscTime, Code
+        sort_cols = [c for c in ["DiscDate", "DiscTime", "Code"] if c in result.columns]
+        if sort_cols:
+            result = result.sort_values(sort_cols).reset_index(drop=True)
+
+        return result
