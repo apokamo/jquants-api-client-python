@@ -245,6 +245,146 @@ MARKETS_SHORT_SALE_REPORT_COLUMNS = [
     "Notes",
 ]
 
+# =============================================================================
+# Financials endpoints
+# =============================================================================
+
+# fins/summary - 決算短信サマリー
+# ref: https://jpx-jquants.com/ja/spec/fin-summary
+FINS_SUMMARY_COLUMNS = [
+    # 基本情報
+    "DiscDate",
+    "DiscTime",
+    "Code",
+    "DiscNo",
+    "DocType",
+    # 会計期間
+    "CurPerType",
+    "CurPerSt",
+    "CurPerEn",
+    "CurFYSt",
+    "CurFYEn",
+    "NxtFYSt",
+    "NxtFYEn",
+    # 連結実績
+    "Sales",
+    "OP",
+    "OdP",
+    "NP",
+    "EPS",
+    "DEPS",
+    "TA",
+    "Eq",
+    "EqAR",
+    "BPS",
+    "CFO",
+    "CFI",
+    "CFF",
+    "CashEq",
+    # 配当実績
+    "Div1Q",
+    "Div2Q",
+    "Div3Q",
+    "DivFY",
+    "DivAnn",
+    "DivUnit",
+    "DivTotalAnn",
+    "PayoutRatioAnn",
+    # 配当予想（当期）
+    "FDiv1Q",
+    "FDiv2Q",
+    "FDiv3Q",
+    "FDivFY",
+    "FDivAnn",
+    "FDivUnit",
+    "FDivTotalAnn",
+    "FPayoutRatioAnn",
+    # 配当予想（翌期）
+    "NxFDiv1Q",
+    "NxFDiv2Q",
+    "NxFDiv3Q",
+    "NxFDivFY",
+    "NxFDivAnn",
+    "NxFDivUnit",
+    "NxFPayoutRatioAnn",
+    # 連結予想2Q
+    "FSales2Q",
+    "FOP2Q",
+    "FOdP2Q",
+    "FNP2Q",
+    "FEPS2Q",
+    "NxFSales2Q",
+    "NxFOP2Q",
+    "NxFOdP2Q",
+    "NxFNP2Q",
+    "NxFEPS2Q",
+    # 連結予想期末
+    "FSales",
+    "FOP",
+    "FOdP",
+    "FNP",
+    "FEPS",
+    "NxFSales",
+    "NxFOP",
+    "NxFOdP",
+    "NxFNP",
+    "NxFEPS",
+    # 会計方針変更
+    "MatChgSub",
+    "SigChgInC",
+    "ChgByASRev",
+    "ChgNoASRev",
+    "ChgAcEst",
+    "RetroRst",
+    # 株式数
+    "ShOutFY",
+    "TrShFY",
+    "AvgSh",
+    # 非連結実績
+    "NCSales",
+    "NCOP",
+    "NCOdP",
+    "NCNP",
+    "NCEPS",
+    "NCTA",
+    "NCEq",
+    "NCEqAR",
+    "NCBPS",
+    # 非連結予想2Q
+    "FNCSales2Q",
+    "FNCOP2Q",
+    "FNCOdP2Q",
+    "FNCNP2Q",
+    "FNCEPS2Q",
+    "NxFNCSales2Q",
+    "NxFNCOP2Q",
+    "NxFNCOdP2Q",
+    "NxFNCNP2Q",
+    "NxFNCEPS2Q",
+    # 非連結予想期末
+    "FNCSales",
+    "FNCOP",
+    "FNCOdP",
+    "FNCNP",
+    "FNCEPS",
+    "NxFNCSales",
+    "NxFNCOP",
+    "NxFNCOdP",
+    "NxFNCNP",
+    "NxFNCEPS",
+]
+
+# 日付型として扱うカラム
+FINS_SUMMARY_DATE_COLUMNS = [
+    "DiscDate",
+    "CurPerSt",
+    "CurPerEn",
+    "CurFYSt",
+    "CurFYEn",
+    "NxtFYSt",
+    "NxtFYEn",
+]
+
 # markets/margin-alert - 信用取引残高（日々公表分）
 # ref: https://jpx-jquants.com/ja/spec/mkt-margin-alert
 # Note: PubReason is a nested object, flattened with dot notation
