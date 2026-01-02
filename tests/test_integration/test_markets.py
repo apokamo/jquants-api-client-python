@@ -9,7 +9,7 @@ import pytest
 
 from jquants import constants_v2 as constants
 
-from .conftest import requires_api_key
+from .conftest import requires_api_key, requires_premium
 
 
 @pytest.mark.integration
@@ -111,9 +111,13 @@ class TestMarketsIntegration:
             assert all(df["S33"] == "0050")
 
     @requires_api_key
-    @pytest.mark.skip(reason="Requires Premium or higher subscription plan")
+    @pytest.mark.premium
+    @requires_premium
     def test_get_markets_breakdown(self, client):
-        """Test get_markets_breakdown returns valid DataFrame."""
+        """Test get_markets_breakdown returns valid DataFrame.
+
+        Note: This endpoint requires Premium or higher subscription plan.
+        """
         df = client.get_markets_breakdown(
             code="72030",
             from_date="2024-01-01",
