@@ -1093,8 +1093,10 @@ class ClientV2:
             ValueError: date と from_date/to_date を同時に指定した場合
 
         Note:
-            公式仕様 (https://jpx-jquants.com/ja/spec/idx-bars-daily) により、
-            「code または date のいずれか一つの指定が必須」と定められています。
+            公式仕様 (https://jpx-jquants.com/ja/spec/idx-bars-daily) の
+            「パラメータ及びレスポンス」セクションに以下の記載があります:
+            「データの取得する際には、指数コード（code）または日付（date）の
+            指定が必須となります。」
             from/to は code と組み合わせて使用し、単独では使用できません。
             date と from_date/to_date は排他（同時指定不可）。
         """

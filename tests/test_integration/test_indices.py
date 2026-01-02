@@ -100,10 +100,11 @@ class TestIndicesIntegration:
 
     @requires_api_key
     def test_get_indices_empty_result(self, client):
-        """Test get_indices with non-existent date returns empty DataFrame or raises.
+        """Test get_indices with non-existent date returns empty DataFrame or raises 400.
 
-        Note: Future dates may return empty DataFrame or raise JQuantsAPIError
+        Note: Future dates may return empty DataFrame or raise 400 Bad Request
         depending on API behavior. Both are acceptable outcomes.
+        Other errors (401/403/429/5xx) should fail the test.
         """
         try:
             df = client.get_indices(date="2099-01-01")
@@ -111,9 +112,12 @@ class TestIndicesIntegration:
             assert isinstance(df, pd.DataFrame)
             assert len(df) == 0
             assert list(df.columns) == constants.INDICES_BARS_DAILY_COLUMNS
-        except JQuantsAPIError:
-            # API may reject future dates with 400 - this is acceptable
-            pytest.skip("API rejected future date with error (expected behavior)")
+        except JQuantsAPIError as e:
+            # Only 400 Bad Request is acceptable for future dates
+            if e.status_code == 400:
+                pytest.skip("API rejected future date with 400 (expected behavior)")
+            # Re-raise other errors (401/403/429/5xx) - these are real failures
+            raise
 
     @requires_api_key
     def test_get_indices_topix(self, client):
