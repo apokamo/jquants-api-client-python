@@ -64,6 +64,15 @@ class TestGetIndexOption:
         with pytest.raises(TypeError):
             client.get_index_option()  # type: ignore
 
+    def test_date_empty_string_raises_valueerror(self):
+        """Empty string date should raise ValueError."""
+        client = ClientV2(api_key="test_api_key")
+
+        with pytest.raises(ValueError) as exc_info:
+            client.get_index_option(date="")
+
+        assert "'date' is required" in str(exc_info.value)
+
     def test_date_parameter_passed(self):
         """date parameter should be passed to API."""
         client = ClientV2(api_key="test_api_key")
@@ -76,6 +85,20 @@ class TestGetIndexOption:
             mock_get.assert_called_once()
             call_kwargs = mock_get.call_args[1]
             assert call_kwargs["params"]["date"] == "2024-01-04"
+
+    def test_correct_api_path_called(self):
+        """Should call the correct API path."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = []
+
+            client.get_index_option(date="2024-01-04")
+
+            mock_get.assert_called_once_with(
+                "/derivatives/bars/daily/options/225",
+                params={"date": "2024-01-04"},
+            )
 
     def test_empty_response_returns_empty_dataframe_with_columns(self):
         """Empty response should return empty DataFrame with correct columns."""

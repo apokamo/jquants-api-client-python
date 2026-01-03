@@ -513,7 +513,7 @@ class ClientV2:
         columns: list[str],
         *,
         date_columns: list[str] | None = None,
-        date_coerce: bool = False,
+        date_coerce_columns: list[str] | None = None,
         numeric_columns: list[str] | None = None,
         sort_columns: list[str] | None = None,
     ) -> pd.DataFrame:
@@ -523,8 +523,9 @@ class ClientV2:
         Args:
             data: List of dictionaries from API response
             columns: Expected column order (superset; missing columns ignored)
-            date_columns: Columns to convert to pd.Timestamp (None = no conversion)
-            date_coerce: If True, invalid dates become NaT instead of raising error
+            date_columns: Columns to convert to pd.Timestamp strictly (raises on error)
+            date_coerce_columns: Columns to convert to pd.Timestamp with coercion
+                                 (empty/invalid values become NaT)
             numeric_columns: Columns to convert to numeric with coercion (None = skip)
             sort_columns: Columns to sort by (None = no sorting)
 
@@ -545,14 +546,17 @@ class ClientV2:
         existing_columns = [c for c in columns if c in df.columns]
         df = df[existing_columns]
 
-        # Convert date columns
+        # Convert date columns (strict - raises on invalid date)
         if date_columns:
             for col in date_columns:
                 if col in df.columns:
-                    if date_coerce:
-                        df[col] = pd.to_datetime(df[col], errors="coerce")
-                    else:
-                        df[col] = pd.to_datetime(df[col])
+                    df[col] = pd.to_datetime(df[col])
+
+        # Convert date columns with coercion (empty/invalid -> NaT)
+        if date_coerce_columns:
+            for col in date_coerce_columns:
+                if col in df.columns:
+                    df[col] = pd.to_datetime(df[col], errors="coerce")
 
         # Convert numeric columns (empty string -> NaN)
         if numeric_columns:
@@ -1092,11 +1096,17 @@ class ClientV2:
         Returns:
             pd.DataFrame: 日経225オプションデータ（Code昇順でソート）
 
+        Raises:
+            ValueError: date が空文字の場合
+
         Note:
             夜間セッションカラム（EO, EH, EL, EC）は初回取引日で空文字となるため、
             NaN に変換される。
             日付カラム（LTD, SQD）で空文字の場合は NaT に変換される。
         """
+        if not date:
+            raise ValueError("'date' is required for get_index_option()")
+
         params: dict[str, str] = {"date": date}
 
         data = self._paginated_get("/derivatives/bars/daily/options/225", params=params)
@@ -1104,8 +1114,8 @@ class ClientV2:
         return self._to_dataframe(
             data,
             constants_v2.DERIVATIVES_OPTIONS_225_COLUMNS,
-            date_columns=constants_v2.DERIVATIVES_OPTIONS_225_DATE_COLUMNS,
-            date_coerce=True,
+            date_columns=["Date"],
+            date_coerce_columns=["LTD", "SQD"],
             numeric_columns=constants_v2.DERIVATIVES_OPTIONS_225_NUMERIC_COLUMNS,
             sort_columns=["Code"],
         )
