@@ -524,8 +524,8 @@ class ClientV2:
             data: List of dictionaries from API response
             columns: Expected column order (superset; missing columns ignored)
             date_columns: Columns to convert to pd.Timestamp strictly (raises on error)
-            date_coerce_columns: Columns to convert to pd.Timestamp with coercion
-                                 (empty/invalid values become NaT)
+            date_coerce_columns: Columns where empty strings are allowed and converted
+                                 to NaT, but other invalid values raise errors
             numeric_columns: Columns to convert to numeric with coercion (None = skip)
             sort_columns: Columns to sort by (None = no sorting)
 
@@ -552,11 +552,15 @@ class ClientV2:
                 if col in df.columns:
                     df[col] = pd.to_datetime(df[col])
 
-        # Convert date columns with coercion (empty/invalid -> NaT)
+        # Convert date columns with empty string tolerance
+        # Empty strings -> NaT, other invalid values -> raise
         if date_coerce_columns:
             for col in date_coerce_columns:
                 if col in df.columns:
-                    df[col] = pd.to_datetime(df[col], errors="coerce")
+                    # Replace empty strings with None first
+                    df[col] = df[col].replace("", None)
+                    # Then strict conversion (None -> NaT, invalid -> raise)
+                    df[col] = pd.to_datetime(df[col])
 
         # Convert numeric columns (empty string -> NaN)
         if numeric_columns:
@@ -1097,14 +1101,14 @@ class ClientV2:
             pd.DataFrame: 日経225オプションデータ（Code昇順でソート）
 
         Raises:
-            ValueError: date が空文字の場合
+            ValueError: date が空文字または空白のみの場合
 
         Note:
             夜間セッションカラム（EO, EH, EL, EC）は初回取引日で空文字となるため、
             NaN に変換される。
             日付カラム（LTD, SQD）で空文字の場合は NaT に変換される。
         """
-        if not date:
+        if not isinstance(date, str) or not date.strip():
             raise ValueError("'date' is required for get_options_225_daily()")
 
         params: dict[str, str] = {"date": date}

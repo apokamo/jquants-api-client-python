@@ -1640,3 +1640,90 @@ class TestClientV2RateLimitParameters:
         # retry_max_attempts=0 は「リトライしない」を意味するので有効
         client = ClientV2(api_key="test_api_key", retry_max_attempts=0)
         assert client._retry_max_attempts == 0
+
+
+class TestClientV2Options225DailyValidation:
+    """Test get_options_225_daily() validation (OPT-001~004)."""
+
+    def test_date_empty_string_raises_valueerror(self):
+        """OPT-001: Empty string date should raise ValueError."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        with pytest.raises(ValueError) as exc_info:
+            client.get_options_225_daily(date="")
+        assert "'date' is required" in str(exc_info.value)
+
+    def test_date_whitespace_only_raises_valueerror(self):
+        """OPT-002: Whitespace-only date should raise ValueError."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        with pytest.raises(ValueError) as exc_info:
+            client.get_options_225_daily(date="   ")
+        assert "'date' is required" in str(exc_info.value)
+
+    def test_date_none_raises_valueerror(self):
+        """OPT-003: None date should raise ValueError."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        with pytest.raises(ValueError) as exc_info:
+            client.get_options_225_daily(date=None)  # type: ignore
+        assert "'date' is required" in str(exc_info.value)
+
+    def test_date_non_string_raises_valueerror(self):
+        """OPT-004: Non-string date should raise ValueError."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        with pytest.raises(ValueError) as exc_info:
+            client.get_options_225_daily(date=12345)  # type: ignore
+        assert "'date' is required" in str(exc_info.value)
+
+
+class TestClientV2ToDataframeDateCoerce:
+    """Test _to_dataframe() date_coerce_columns behavior (DC-001~003)."""
+
+    def test_empty_string_becomes_nat(self):
+        """DC-001: Empty string in date_coerce_columns should become NaT."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Code": "1301", "LTD": "", "Date": "2024-01-15"}]
+        columns = ["Code", "Date", "LTD"]
+
+        result = client._to_dataframe(
+            data, columns, date_columns=["Date"], date_coerce_columns=["LTD"]
+        )
+
+        assert pd.isna(result["LTD"].iloc[0])
+
+    def test_valid_date_in_coerce_column_converted(self):
+        """DC-002: Valid date in date_coerce_columns should be converted."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Code": "1301", "LTD": "2024-03-15", "Date": "2024-01-15"}]
+        columns = ["Code", "Date", "LTD"]
+
+        result = client._to_dataframe(
+            data, columns, date_columns=["Date"], date_coerce_columns=["LTD"]
+        )
+
+        assert pd.api.types.is_datetime64_any_dtype(result["LTD"])
+        assert result["LTD"].iloc[0] == pd.Timestamp("2024-03-15")
+
+    def test_invalid_date_in_coerce_column_raises(self):
+        """DC-003: Invalid date (not empty) in date_coerce_columns should raise."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        data = [{"Code": "1301", "LTD": "invalid-date", "Date": "2024-01-15"}]
+        columns = ["Code", "Date", "LTD"]
+
+        # Invalid date (not empty string) should raise
+        with pytest.raises(ValueError):
+            client._to_dataframe(
+                data, columns, date_columns=["Date"], date_coerce_columns=["LTD"]
+            )
