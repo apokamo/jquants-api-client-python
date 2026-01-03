@@ -513,6 +513,8 @@ class ClientV2:
         columns: list[str],
         *,
         date_columns: list[str] | None = None,
+        date_coerce: bool = False,
+        numeric_columns: list[str] | None = None,
         sort_columns: list[str] | None = None,
     ) -> pd.DataFrame:
         """
@@ -522,6 +524,8 @@ class ClientV2:
             data: List of dictionaries from API response
             columns: Expected column order (superset; missing columns ignored)
             date_columns: Columns to convert to pd.Timestamp (None = no conversion)
+            date_coerce: If True, invalid dates become NaT instead of raising error
+            numeric_columns: Columns to convert to numeric with coercion (None = skip)
             sort_columns: Columns to sort by (None = no sorting)
 
         Returns:
@@ -545,7 +549,16 @@ class ClientV2:
         if date_columns:
             for col in date_columns:
                 if col in df.columns:
-                    df[col] = pd.to_datetime(df[col])
+                    if date_coerce:
+                        df[col] = pd.to_datetime(df[col], errors="coerce")
+                    else:
+                        df[col] = pd.to_datetime(df[col])
+
+        # Convert numeric columns (empty string -> NaN)
+        if numeric_columns:
+            for col in numeric_columns:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
 
         # Sort
         if sort_columns:
@@ -1064,3 +1077,100 @@ class ClientV2:
             current += timedelta(days=1)
 
         return dates
+
+    # =========================================================================
+    # Derivatives endpoints
+    # =========================================================================
+
+    def get_index_option(self, date: str) -> pd.DataFrame:
+        """
+        日経225オプション日足データを取得する。
+
+        Args:
+            date: 取引日 YYYY-MM-DD or YYYYMMDD（必須）
+
+        Returns:
+            pd.DataFrame: 日経225オプションデータ（Code昇順でソート）
+
+        Note:
+            夜間セッションカラム（EO, EH, EL, EC）は初回取引日で空文字となるため、
+            NaN に変換される。
+            日付カラム（LTD, SQD）で空文字の場合は NaT に変換される。
+        """
+        params: dict[str, str] = {"date": date}
+
+        data = self._paginated_get("/derivatives/bars/daily/options/225", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.DERIVATIVES_OPTIONS_225_COLUMNS,
+            date_columns=constants_v2.DERIVATIVES_OPTIONS_225_DATE_COLUMNS,
+            date_coerce=True,
+            numeric_columns=constants_v2.DERIVATIVES_OPTIONS_225_NUMERIC_COLUMNS,
+            sort_columns=["Code"],
+        )
+
+    def get_index_option_range(
+        self,
+        start_dt: Union[str, datetime, date_type],
+        end_dt: Optional[Union[str, datetime, date_type]] = None,
+    ) -> pd.DataFrame:
+        """
+        日付範囲で日経225オプション日足データを取得する。
+
+        Args:
+            start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）
+            end_dt: 終了日（省略時: 今日）
+
+        Returns:
+            pd.DataFrame: 日経225オプションデータ（Code, Date昇順でソート）
+
+        Raises:
+            ValueError: start_dt > end_dt の場合
+
+        Note:
+            - 日付文字列は YYYY-MM-DD 形式のみ対応（YYYYMMDD は ValueError）
+            - max_workers == 1: 直列取得（デフォルト、安全）
+            - max_workers > 1: 並列取得（Pacer制御下）
+            - 長期間取得時は max_workers の調整を推奨
+        """
+        # Normalize dates to strings
+        start_str = self._normalize_date(start_dt)
+        if end_dt is None:
+            end_str = date_type.today().isoformat()
+        else:
+            end_str = self._normalize_date(end_dt)
+
+        # Validate date range
+        if start_str > end_str:
+            raise ValueError(
+                f"start_dt ({start_str}) must not be after end_dt ({end_str})"
+            )
+
+        # Generate date list
+        dates = self._generate_date_range(start_str, end_str)
+
+        # Fetch data
+        if self._max_workers == 1:
+            # Sequential execution
+            dfs = [self.get_index_option(date=d) for d in dates]
+        else:
+            # Parallel execution with ThreadPoolExecutor
+            def fetch_date(d: str) -> pd.DataFrame:
+                return self.get_index_option(date=d)
+
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                dfs = list(executor.map(fetch_date, dates))
+
+        # Combine results
+        if not dfs or all(df.empty for df in dfs):
+            return pd.DataFrame(columns=constants_v2.DERIVATIVES_OPTIONS_225_COLUMNS)
+
+        result = pd.concat(dfs, ignore_index=True)
+
+        # Sort by Code, Date
+        sort_cols = [c for c in ["Code", "Date"] if c in result.columns]
+        if sort_cols:
+            result = result.sort_values(sort_cols).reset_index(drop=True)
+
+        return result
