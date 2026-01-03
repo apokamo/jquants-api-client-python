@@ -433,3 +433,57 @@ INDICES_BARS_DAILY_COLUMNS = [
     "L",
     "C",
 ]
+
+# =============================================================================
+# Derivatives endpoints
+# =============================================================================
+
+# derivatives/bars/daily/options/225 - 日経225オプション日足
+# ref: https://jpx-jquants.com/ja/spec/drv-bars-daily-opt-225
+DERIVATIVES_OPTIONS_225_COLUMNS = [
+    # 基本情報
+    "Date",
+    "Code",
+    # 全セッションOHLC
+    "O",
+    "H",
+    "L",
+    "C",
+    # 夜間セッションOHLC（初回取引日は空文字）
+    "EO",
+    "EH",
+    "EL",
+    "EC",
+    # 日中セッションOHLC
+    "AO",
+    "AH",
+    "AL",
+    "AC",
+    # 出来高・建玉
+    "Vo",
+    "OI",
+    "Va",
+    "VoOA",
+    # 契約情報
+    "CM",
+    "Strike",
+    "PCDiv",
+    # 期日情報
+    "LTD",
+    "SQD",
+    # 価格・ボラティリティ（2016-07-19以降のみ）
+    "Settle",
+    "Theo",
+    "BaseVol",
+    "UnderPx",
+    "IV",
+    "IR",
+    # 管理区分
+    "EmMrgnTrgDiv",
+]
+
+# 日付型として扱うカラム
+DERIVATIVES_OPTIONS_225_DATE_COLUMNS = ["Date", "LTD", "SQD"]
+
+# 数値型変換が必要なカラム（夜間セッションは初回取引日で空文字となる）
+DERIVATIVES_OPTIONS_225_NUMERIC_COLUMNS = ["EO", "EH", "EL", "EC"]

@@ -201,7 +201,7 @@ class JQuantsRateLimitError(JQuantsAPIError):
 
 | V2 エンドポイント | メソッド名 | 並列取得 |
 |------------------|-----------|---------|
-| `/v2/derivatives/bars/daily/options/225` | `get_option_index_option()` | `get_index_option_range()` |
+| `/v2/derivatives/bars/daily/options/225` | `get_options_225_daily()` | `get_options_225_daily_range()` |
 | `/v2/derivatives/bars/daily/futures` | `get_derivatives_futures()` | `get_derivatives_futures_range()` |
 | `/v2/derivatives/bars/daily/options` | `get_derivatives_options()` | `get_derivatives_options_range()` |
 
