@@ -1111,6 +1111,7 @@ class ClientV2:
         if not isinstance(date, str) or not date.strip():
             raise ValueError("'date' is required for get_options_225_daily()")
 
+        date = date.strip()
         params: dict[str, str] = {"date": date}
 
         data = self._paginated_get("/derivatives/bars/daily/options/225", params=params)

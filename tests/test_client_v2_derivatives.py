@@ -73,6 +73,29 @@ class TestGetIndexOption:
 
         assert "'date' is required" in str(exc_info.value)
 
+    def test_date_whitespace_only_raises_valueerror(self):
+        """Whitespace-only date should raise ValueError."""
+        client = ClientV2(api_key="test_api_key")
+
+        with pytest.raises(ValueError) as exc_info:
+            client.get_options_225_daily(date="   ")
+
+        assert "'date' is required" in str(exc_info.value)
+
+    def test_date_with_whitespace_is_stripped(self):
+        """Date with surrounding whitespace should be stripped before API call."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = []
+
+            client.get_options_225_daily(date="  2024-01-04  ")
+
+            mock_get.assert_called_once()
+            call_kwargs = mock_get.call_args[1]
+            # Verify the date is stripped before being passed to API
+            assert call_kwargs["params"]["date"] == "2024-01-04"
+
     def test_date_parameter_passed(self):
         """date parameter should be passed to API."""
         client = ClientV2(api_key="test_api_key")

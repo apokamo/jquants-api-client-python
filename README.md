@@ -120,7 +120,7 @@ J-Quants API の各 API エンドポイントに対応しています。
 
 - get_weekly_margin_range
 - get_short_selling_range
-- get_options_225_daily_range
+- get_index_option_range
 - get_markets_short_selling_positions_range
 - get_daily_margin_interest_range
 
