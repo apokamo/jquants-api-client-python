@@ -31,7 +31,11 @@ class TestRetryNormal:
         assert isinstance(session1, requests.Session)
 
     def test_retry_002_retry_config_values(self, fresh_client: ClientV2) -> None:
-        """RETRY-002: Retry strategy configuration is correct."""
+        """RETRY-002: Retry strategy configuration is correct.
+
+        429 is handled by custom retry logic in _request(), not by urllib3 Retry.
+        Custom 429 retry defaults are tested in test_client_v2.py unit tests.
+        """
         # Access the session to trigger creation
         session = fresh_client._request_session()
 
@@ -39,13 +43,18 @@ class TestRetryNormal:
         adapter = session.get_adapter("https://")
         assert isinstance(adapter, HTTPAdapter)
 
-        # Verify retry configuration
+        # Verify urllib3 Retry configuration
         retry = adapter.max_retries
         assert retry.total == 3
         assert retry.backoff_factor == 0.5
-        assert 429 in retry.status_forcelist
-        assert 500 in retry.status_forcelist
         assert retry.respect_retry_after_header is True
+
+        # 429 is excluded from status_forcelist (handled by custom retry logic)
+        assert 429 not in retry.status_forcelist
+
+        # Server errors are in status_forcelist (handled by urllib3 Retry)
+        # Use set() for type/order-independent comparison (urllib3 may use frozenset)
+        assert set(retry.status_forcelist) == {500, 502, 503, 504}
 
 
 class TestRetryRare:
