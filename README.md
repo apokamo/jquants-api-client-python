@@ -20,45 +20,22 @@ To use J-Quants API, you need to "Applications for J-Quants API" from [J-Quants 
 
 J-Quants API を利用するためには[J-Quants API の Web サイト](https://jpx-jquants.com/) から「J-Quants API 申し込み」及び利用プランの選択が必要になります。
 
-jquants-api-client-python を使用するためには「J-Quants API ログインページで使用するメールアドレスおよびパスワード」または「J-Quants API メニューページから取得したリフレッシュトークン」が必要になります。必要に応じて下記の Web サイトより取得してください。
+jquants-api-client-python を使用するためには「J-Quants API メニューページから取得した API キー」が必要になります。必要に応じて下記の Web サイトより取得してください。
 
-[J-Quants API ログインページ](https://jpx-jquants.com/auth/signin/)
+[J-Quants API メニューページ](https://jpx-jquants.com/)
 
 ### サンプルコード
 
 ```python
-from datetime import datetime
-from dateutil import tz
-import jquantsapi
+from jquants import ClientV2
 
-my_mail_address:str = "*****"
-my_password: str = "*****"
-cli = jquantsapi.Client(mail_address=my_mail_address, password=my_password)
-df = cli.get_price_range(
-    start_dt=datetime(2022, 7, 25, tzinfo=tz.gettz("Asia/Tokyo")),
-    end_dt=datetime(2022, 7, 26, tzinfo=tz.gettz("Asia/Tokyo")),
-)
+api_key = "*****"
+cli = ClientV2(api_key=api_key)
+df = cli.get_prices_daily_quotes(date="2022-07-25")
 print(df)
 ```
 
 API レスポンスが Dataframe の形式で取得できます。
-
-```shell
-       Code       Date  ...  AdjustmentClose  AdjustmentVolume
-0     13010 2022-07-25  ...           3630.0            8100.0
-1     13050 2022-07-25  ...           2023.0           54410.0
-2     13060 2022-07-25  ...           2001.0          943830.0
-3     13080 2022-07-25  ...           1977.5          121300.0
-4     13090 2022-07-25  ...          43300.0             391.0
-...     ...        ...  ...              ...               ...
-4189  99930 2022-07-26  ...           1426.0            5600.0
-4190  99940 2022-07-26  ...           2605.0            7300.0
-4191  99950 2022-07-26  ...            404.0           13000.0
-4192  99960 2022-07-26  ...           1255.0            4000.0
-4193  99970 2022-07-26  ...            825.0          133600.0
-
-[8388 rows x 14 columns]
-```
 
 より具体的な使用例は [サンプルノートブック(/examples)](examples) をご参照ください。
 
@@ -134,14 +111,14 @@ J-Quants API の各 API エンドポイントに対応しています。
 
 ## 設定
 
-認証用のメールアドレス/パスワードおよびリフレッシュトークンは設定ファイルおよび環境変数を使用して指定することも可能です。
+認証用の API キーは設定ファイルおよび環境変数を使用して指定することも可能です。
 設定は下記の順に読み込まれ、設定項目が重複している場合は後に読み込まれた値で上書きされます。
 
 1. `/content/drive/MyDrive/drive_ws/secret/jquants-api.toml` (Google Colab のみ)
 2. `${HOME}/.jquants-api/jquants-api.toml`
 3. `jquants-api.toml`
 4. `os.environ["JQUANTS_API_CLIENT_CONFIG_FILE"]`
-5. `${JQUANTS_API_MAIL_ADDRESS}`, `${JQUANTS_API_PASSWORD}`, `${JQUANTS_API_REFRESH_TOKEN}`
+5. `${JQUANTS_API_KEY}`
 
 ### 設定ファイル例
 
@@ -149,9 +126,7 @@ J-Quants API の各 API エンドポイントに対応しています。
 
 ```toml
 [jquants-api-client]
-mail_address = "*****"
-password = "*****"
-refresh_token = "*****"
+api_key = "*****"
 ```
 
 ## 動作確認

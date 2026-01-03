@@ -48,20 +48,19 @@ upstream → J-Quants/jquants-api-client-python (pull only, NEVER push)
 ## Project Overview
 
 J-Quants API Python client library for Japanese stock market data (JPX).
-API docs: https://jpx.gitbook.io/j-quants-ja/
+
+### API Documentation
+- **V2 API** (current): https://jpx-jquants.com/ja/spec/
+  - プラン別エンドポイント一覧: https://jpx-jquants.com/ja/spec/data-spec
 
 ## Package Structure
 
 ```
-jquantsapi/          # V1 client (deprecated)
-├── client.py        # Client class with all API methods
-├── constants.py     # DataFrame column definitions
-└── enums.py         # MARKET_API_SECTIONS etc.
-
-jquants/             # V2 client (in development)
+jquants/             # V2 client
 ├── client_v2.py     # ClientV2 with API key auth
 ├── constants_v2.py  # V2 column definitions
-└── exceptions.py    # Custom exceptions
+├── exceptions.py    # Custom exceptions
+└── pacer.py         # Rate limiting
 ```
 
 ## Client Pattern

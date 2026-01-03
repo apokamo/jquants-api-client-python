@@ -14,7 +14,6 @@ classifiers = [
 ]
 keywords = ["jquants", "api", "client", "J-Quants"]
 packages = [
-    { include = "jquantsapi" },
     { include = "jquants" }
 ]
 homepage = "https://github.com/J-Quants/jquants-api-client-python"
@@ -76,5 +75,4 @@ addopts = "-v -m 'not integration and not slow'"
 omit = [
     "jquants/client_v1.py",
     "jquants/constants_v1.py",
-    "jquantsapi/*",
 ]
