@@ -1086,7 +1086,7 @@ class ClientV2:
     # Derivatives endpoints
     # =========================================================================
 
-    def get_index_option(self, date: str) -> pd.DataFrame:
+    def get_options_225_daily(self, date: str) -> pd.DataFrame:
         """
         日経225オプション日足データを取得する。
 
@@ -1105,7 +1105,7 @@ class ClientV2:
             日付カラム（LTD, SQD）で空文字の場合は NaT に変換される。
         """
         if not date:
-            raise ValueError("'date' is required for get_index_option()")
+            raise ValueError("'date' is required for get_options_225_daily()")
 
         params: dict[str, str] = {"date": date}
 
@@ -1120,7 +1120,7 @@ class ClientV2:
             sort_columns=["Code"],
         )
 
-    def get_index_option_range(
+    def get_options_225_daily_range(
         self,
         start_dt: Union[str, datetime, date_type],
         end_dt: Optional[Union[str, datetime, date_type]] = None,
@@ -1163,11 +1163,11 @@ class ClientV2:
         # Fetch data
         if self._max_workers == 1:
             # Sequential execution
-            dfs = [self.get_index_option(date=d) for d in dates]
+            dfs = [self.get_options_225_daily(date=d) for d in dates]
         else:
             # Parallel execution with ThreadPoolExecutor
             def fetch_date(d: str) -> pd.DataFrame:
-                return self.get_index_option(date=d)
+                return self.get_options_225_daily(date=d)
 
             with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
                 dfs = list(executor.map(fetch_date, dates))

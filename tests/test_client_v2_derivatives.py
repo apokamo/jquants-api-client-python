@@ -11,7 +11,7 @@ from jquants import constants_v2 as constants
 
 
 class TestGetIndexOption:
-    """Test get_index_option() method."""
+    """Test get_options_225_daily() method."""
 
     def test_returns_dataframe(self):
         """Should return a pandas DataFrame."""
@@ -53,7 +53,7 @@ class TestGetIndexOption:
                 },
             ]
 
-            result = client.get_index_option(date="2024-01-04")
+            result = client.get_options_225_daily(date="2024-01-04")
 
             assert isinstance(result, pd.DataFrame)
 
@@ -62,14 +62,14 @@ class TestGetIndexOption:
         client = ClientV2(api_key="test_api_key")
 
         with pytest.raises(TypeError):
-            client.get_index_option()  # type: ignore
+            client.get_options_225_daily()  # type: ignore
 
     def test_date_empty_string_raises_valueerror(self):
         """Empty string date should raise ValueError."""
         client = ClientV2(api_key="test_api_key")
 
         with pytest.raises(ValueError) as exc_info:
-            client.get_index_option(date="")
+            client.get_options_225_daily(date="")
 
         assert "'date' is required" in str(exc_info.value)
 
@@ -80,7 +80,7 @@ class TestGetIndexOption:
         with patch.object(client, "_paginated_get") as mock_get:
             mock_get.return_value = []
 
-            client.get_index_option(date="2024-01-04")
+            client.get_options_225_daily(date="2024-01-04")
 
             mock_get.assert_called_once()
             call_kwargs = mock_get.call_args[1]
@@ -93,7 +93,7 @@ class TestGetIndexOption:
         with patch.object(client, "_paginated_get") as mock_get:
             mock_get.return_value = []
 
-            client.get_index_option(date="2024-01-04")
+            client.get_options_225_daily(date="2024-01-04")
 
             mock_get.assert_called_once_with(
                 "/derivatives/bars/daily/options/225",
@@ -107,7 +107,7 @@ class TestGetIndexOption:
         with patch.object(client, "_paginated_get") as mock_get:
             mock_get.return_value = []
 
-            result = client.get_index_option(date="2024-01-04")
+            result = client.get_options_225_daily(date="2024-01-04")
 
             assert isinstance(result, pd.DataFrame)
             assert len(result) == 0
@@ -153,7 +153,7 @@ class TestGetIndexOption:
                 },
             ]
 
-            result = client.get_index_option(date="2024-01-04")
+            result = client.get_options_225_daily(date="2024-01-04")
 
             assert pd.api.types.is_datetime64_any_dtype(result["Date"])
             assert pd.api.types.is_datetime64_any_dtype(result["LTD"])
@@ -199,7 +199,7 @@ class TestGetIndexOption:
                 },
             ]
 
-            result = client.get_index_option(date="2024-01-04")
+            result = client.get_options_225_daily(date="2024-01-04")
 
             assert pd.isna(result.iloc[0]["LTD"])
             assert pd.isna(result.iloc[0]["SQD"])
@@ -244,7 +244,7 @@ class TestGetIndexOption:
                 },
             ]
 
-            result = client.get_index_option(date="2024-01-04")
+            result = client.get_options_225_daily(date="2024-01-04")
 
             assert pd.isna(result.iloc[0]["EO"])
             assert pd.isna(result.iloc[0]["EH"])
@@ -323,7 +323,7 @@ class TestGetIndexOption:
                 },
             ]
 
-            result = client.get_index_option(date="2024-01-04")
+            result = client.get_options_225_daily(date="2024-01-04")
 
             assert result.iloc[0]["Code"] == "188010019"
             assert result.iloc[1]["Code"] == "188020019"
@@ -369,19 +369,19 @@ class TestGetIndexOption:
                 },
             ]
 
-            result = client.get_index_option(date="2024-01-04")
+            result = client.get_options_225_daily(date="2024-01-04")
 
             assert list(result.columns) == constants.DERIVATIVES_OPTIONS_225_COLUMNS
 
 
 class TestGetIndexOptionRange:
-    """Test get_index_option_range() method."""
+    """Test get_options_225_daily_range() method."""
 
     def test_returns_dataframe(self):
         """Should return a pandas DataFrame."""
         client = ClientV2(api_key="test_api_key")
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 {
                     "Date": pd.to_datetime(["2024-01-04"]),
@@ -389,7 +389,7 @@ class TestGetIndexOptionRange:
                 }
             )
 
-            result = client.get_index_option_range(start_dt="2024-01-04")
+            result = client.get_options_225_daily_range(start_dt="2024-01-04")
 
             assert isinstance(result, pd.DataFrame)
 
@@ -398,19 +398,19 @@ class TestGetIndexOptionRange:
         client = ClientV2(api_key="test_api_key")
 
         with pytest.raises(TypeError):
-            client.get_index_option_range()  # type: ignore
+            client.get_options_225_daily_range()  # type: ignore
 
     def test_end_dt_defaults_to_today(self):
         """end_dt should default to today if not specified."""
         client = ClientV2(api_key="test_api_key")
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS
             )
 
             today = date.today().isoformat()
-            client.get_index_option_range(start_dt=today)
+            client.get_options_225_daily_range(start_dt=today)
 
             # Should be called once for today
             mock_get.assert_called_once()
@@ -422,7 +422,7 @@ class TestGetIndexOptionRange:
         client = ClientV2(api_key="test_api_key")
 
         with pytest.raises(ValueError) as exc_info:
-            client.get_index_option_range(
+            client.get_options_225_daily_range(
                 start_dt="2024-01-10",
                 end_dt="2024-01-01",
             )
@@ -430,15 +430,15 @@ class TestGetIndexOptionRange:
         assert "must not be after" in str(exc_info.value)
 
     def test_date_range_generates_correct_calls(self):
-        """Should call get_index_option for each date in range."""
+        """Should call get_options_225_daily for each date in range."""
         client = ClientV2(api_key="test_api_key")
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS
             )
 
-            client.get_index_option_range(
+            client.get_options_225_daily_range(
                 start_dt="2024-01-04",
                 end_dt="2024-01-06",
             )
@@ -452,12 +452,12 @@ class TestGetIndexOptionRange:
         """Should accept string date format."""
         client = ClientV2(api_key="test_api_key")
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS
             )
 
-            client.get_index_option_range(
+            client.get_options_225_daily_range(
                 start_dt="2024-01-04",
                 end_dt="2024-01-04",
             )
@@ -468,12 +468,12 @@ class TestGetIndexOptionRange:
         """Should accept date object."""
         client = ClientV2(api_key="test_api_key")
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS
             )
 
-            client.get_index_option_range(
+            client.get_options_225_daily_range(
                 start_dt=date(2024, 1, 4),
                 end_dt=date(2024, 1, 4),
             )
@@ -484,12 +484,12 @@ class TestGetIndexOptionRange:
         """Should accept datetime object."""
         client = ClientV2(api_key="test_api_key")
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS
             )
 
-            client.get_index_option_range(
+            client.get_options_225_daily_range(
                 start_dt=datetime(2024, 1, 4, 10, 0, 0),
                 end_dt=datetime(2024, 1, 4, 15, 0, 0),
             )
@@ -500,12 +500,12 @@ class TestGetIndexOptionRange:
         """Empty period should return empty DataFrame with correct columns."""
         client = ClientV2(api_key="test_api_key")
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS
             )
 
-            result = client.get_index_option_range(
+            result = client.get_options_225_daily_range(
                 start_dt="2024-01-04",
                 end_dt="2024-01-04",
             )
@@ -517,7 +517,7 @@ class TestGetIndexOptionRange:
         """Result should be sorted by Code, Date ascending."""
         client = ClientV2(api_key="test_api_key")
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             # Return data in wrong order
             mock_get.side_effect = [
                 pd.DataFrame(
@@ -544,7 +544,7 @@ class TestGetIndexOptionRange:
                 ),
             ]
 
-            result = client.get_index_option_range(
+            result = client.get_options_225_daily_range(
                 start_dt="2024-01-04",
                 end_dt="2024-01-05",
             )
@@ -556,12 +556,12 @@ class TestGetIndexOptionRange:
         """Should execute sequentially when max_workers=1 (default)."""
         client = ClientV2(api_key="test_api_key", max_workers=1)
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS
             )
 
-            client.get_index_option_range(
+            client.get_options_225_daily_range(
                 start_dt="2024-01-04",
                 end_dt="2024-01-05",
             )
@@ -573,7 +573,7 @@ class TestGetIndexOptionRange:
         """Should execute in parallel when max_workers > 1."""
         client = ClientV2(api_key="test_api_key", max_workers=2)
 
-        with patch.object(client, "get_index_option") as mock_get:
+        with patch.object(client, "get_options_225_daily") as mock_get:
             mock_get.return_value = pd.DataFrame(
                 columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS
             )
@@ -585,7 +585,7 @@ class TestGetIndexOptionRange:
                     pd.DataFrame(columns=constants.DERIVATIVES_OPTIONS_225_COLUMNS),
                 ]
 
-                client.get_index_option_range(
+                client.get_options_225_daily_range(
                     start_dt="2024-01-04",
                     end_dt="2024-01-05",
                 )

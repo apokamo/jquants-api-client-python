@@ -18,12 +18,12 @@ class TestDerivativesIntegration:
     """Integration tests for Derivatives endpoints."""
 
     @requires_api_key
-    def test_get_index_option(self, client):
-        """Test get_index_option returns valid DataFrame.
+    def test_get_options_225_daily(self, client):
+        """Test get_options_225_daily returns valid DataFrame.
 
         Note: The endpoint returns Nikkei 225 option data for the specified date.
         """
-        df = client.get_index_option(date="2024-12-27")
+        df = client.get_options_225_daily(date="2024-12-27")
 
         assert isinstance(df, pd.DataFrame)
         if not df.empty:
@@ -43,9 +43,9 @@ class TestDerivativesIntegration:
                 assert df["Code"].is_monotonic_increasing
 
     @requires_api_key
-    def test_get_index_option_column_types(self, client):
-        """Test get_index_option returns correct column types."""
-        df = client.get_index_option(date="2024-12-27")
+    def test_get_options_225_daily_column_types(self, client):
+        """Test get_options_225_daily returns correct column types."""
+        df = client.get_options_225_daily(date="2024-12-27")
 
         assert isinstance(df, pd.DataFrame)
         if not df.empty:
@@ -64,9 +64,9 @@ class TestDerivativesIntegration:
                     assert sample_cm[4] == "-"  # Separator
 
     @requires_api_key
-    def test_get_index_option_range(self, client):
-        """Test get_index_option_range returns valid DataFrame."""
-        df = client.get_index_option_range(
+    def test_get_options_225_daily_range(self, client):
+        """Test get_options_225_daily_range returns valid DataFrame."""
+        df = client.get_options_225_daily_range(
             start_dt="2024-12-26",
             end_dt="2024-12-27",
         )
@@ -88,13 +88,13 @@ class TestDerivativesIntegration:
                     )
 
     @requires_api_key
-    def test_get_index_option_empty_date(self, client):
-        """Test get_index_option with holiday returns empty DataFrame.
+    def test_get_options_225_daily_empty_date(self, client):
+        """Test get_options_225_daily with holiday returns empty DataFrame.
 
         Note: API returns empty list on holidays, not 404 error.
         """
         # 2024-01-01 is New Year's Day (holiday)
-        df = client.get_index_option(date="2024-01-01")
+        df = client.get_options_225_daily(date="2024-01-01")
 
         assert isinstance(df, pd.DataFrame)
         # Should return empty DataFrame (not error)
@@ -105,7 +105,7 @@ class TestDerivativesIntegration:
     @requires_api_key
     def test_column_order_matches_constants(self, client):
         """Test that returned DataFrame columns match constants definition order."""
-        df = client.get_index_option(date="2024-12-27")
+        df = client.get_options_225_daily(date="2024-12-27")
 
         assert isinstance(df, pd.DataFrame)
         if not df.empty:
