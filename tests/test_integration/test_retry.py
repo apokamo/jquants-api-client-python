@@ -34,6 +34,7 @@ class TestRetryNormal:
         """RETRY-002: Retry strategy configuration is correct.
 
         429 is handled by custom retry logic in _request(), not by urllib3 Retry.
+        Custom 429 retry defaults are tested in test_client_v2.py unit tests.
         """
         # Access the session to trigger creation
         session = fresh_client._request_session()
@@ -52,12 +53,8 @@ class TestRetryNormal:
         assert 429 not in retry.status_forcelist
 
         # Server errors are in status_forcelist (handled by urllib3 Retry)
-        assert retry.status_forcelist == [500, 502, 503, 504]
-
-        # Verify custom 429 retry settings (default values)
-        assert fresh_client._retry_on_429 is True
-        assert fresh_client._retry_wait_seconds == 310
-        assert fresh_client._retry_max_attempts == 3
+        # Use set() for type/order-independent comparison (urllib3 may use frozenset)
+        assert set(retry.status_forcelist) == {500, 502, 503, 504}
 
 
 class TestRetryRare:
