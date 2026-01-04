@@ -91,15 +91,11 @@ def get_xxx(self, ...) -> pd.DataFrame:
 ```
 jquants/
 ├── __init__.py
-├── client_v1.py          # 既存（Phase 1）
 ├── client_v2.py          # 認証（Phase 2） + エンドポイント（Phase 3）
-├── constants_v1.py       # V1カラム定義（既存constantsから移行）
-├── constants_v2.py       # V2カラム定義（新規作成）
-├── enums.py
-└── exceptions.py         # 新規: カスタム例外クラス
+├── constants_v2.py       # V2カラム定義
+└── exceptions.py         # カスタム例外クラス
 
 tests/
-├── test_client_v1.py
 └── test_client_v2.py     # Phase 2テスト + Phase 3テスト
 ```
 

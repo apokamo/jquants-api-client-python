@@ -71,8 +71,3 @@ testpaths = ["tests"]
 # Run all tests: pytest --run-slow -m ''
 addopts = "-v -m 'not integration and not slow'"
 
-[tool.coverage.run]
-omit = [
-    "jquants/client_v1.py",
-    "jquants/constants_v1.py",
-]
