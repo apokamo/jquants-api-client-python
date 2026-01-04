@@ -874,13 +874,26 @@ class ClientV2:
             pd.DataFrame: 業種別空売り比率（Date, S33昇順でソート）
 
         Raises:
-            ValueError: date と from_date/to_date を同時に指定した場合
+            ValueError: パラメータ組み合わせが仕様に違反する場合
         """
+        # from/to を使う場合は sector_33_code が必須
+        if (from_date or to_date) and not sector_33_code:
+            raise ValueError(
+                "'from_date'/'to_date' can only be used with 'sector_33_code'. "
+                "Please specify 'sector_33_code' when using date range."
+            )
+
         # date と from_date/to_date は排他
         if date and (from_date or to_date):
             raise ValueError(
                 "'date' and 'from_date'/'to_date' are mutually exclusive. "
-                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+                "Use 'date' for single day, or 'sector_33_code' + 'from_date'/'to_date' for date range."
+            )
+
+        # date または sector_33_code のいずれかが必須
+        if not date and not sector_33_code:
+            raise ValueError(
+                "Either 'date' or 'sector_33_code' is required for this API."
             )
 
         params: dict[str, str] = {}
@@ -1035,14 +1048,25 @@ class ClientV2:
             pd.DataFrame: 信用取引残高（PubDate, Code昇順でソート）
 
         Raises:
-            ValueError: date と from_date/to_date を同時に指定した場合
+            ValueError: パラメータ組み合わせが仕様に違反する場合
         """
+        # from/to を使う場合は code が必須
+        if (from_date or to_date) and not code:
+            raise ValueError(
+                "'from_date'/'to_date' can only be used with 'code'. "
+                "Please specify 'code' when using date range."
+            )
+
         # date と from_date/to_date は排他
         if date and (from_date or to_date):
             raise ValueError(
                 "'date' and 'from_date'/'to_date' are mutually exclusive. "
-                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+                "Use 'date' for single day, or 'code' + 'from_date'/'to_date' for date range."
             )
+
+        # code または date のいずれかが必須
+        if not code and not date:
+            raise ValueError("Either 'code' or 'date' is required for this API.")
 
         params: dict[str, str] = {}
         if code:

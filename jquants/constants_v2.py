@@ -316,7 +316,7 @@ FINS_SUMMARY_COLUMNS = [
     "NxFSales2Q",
     "NxFOP2Q",
     "NxFOdP2Q",
-    "NxFNP2Q",
+    "NxFNp2Q",
     "NxFEPS2Q",
     # 連結予想期末
     "FSales",
@@ -327,7 +327,7 @@ FINS_SUMMARY_COLUMNS = [
     "NxFSales",
     "NxFOP",
     "NxFOdP",
-    "NxFNP",
+    "NxFNp",
     "NxFEPS",
     # 会計方針変更
     "MatChgSub",
