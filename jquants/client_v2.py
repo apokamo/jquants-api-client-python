@@ -1129,7 +1129,9 @@ class ClientV2:
 
         Args:
             start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）
+                      非ゼロ埋め（例: "2024-1-5"）も許容し内部で正規化
             end_dt: 終了日（省略時: 今日）
+                    非ゼロ埋め（例: "2024-1-5"）も許容し内部で正規化
             fetch_func: 単一日付でデータを取得する関数 (date_str) -> DataFrame
             sort_columns: ソートキーのカラム名リスト
             empty_columns: 空DataFrame時のカラム定義
@@ -1141,7 +1143,7 @@ class ClientV2:
 
         Raises:
             ValueError: start_dt > end_dt の場合
-            ValueError: 日付文字列が YYYYMMDD 形式の場合
+            ValueError: 日付文字列が YYYY-MM-DD 形式でない場合
         """
         # Normalize dates to strings
         start_str = self._normalize_date(start_dt)

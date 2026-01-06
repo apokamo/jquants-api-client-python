@@ -107,8 +107,9 @@ Parameters:
 - `ensure_all_columns`: If True, reindex to guarantee all columns present with correct order
 
 Behavior:
-- Validates `start_dt <= end_dt`
-- Converts `YYYYMMDD` format errors to user-friendly messages
+- Normalizes date strings (non-zero-padded like "2024-1-5" → "2024-01-05")
+- Validates `start_dt <= end_dt` (after normalization, safe string comparison)
+- Rejects non-YYYY-MM-DD formats with user-friendly error messages
 - Dispatches to sequential or parallel execution based on `max_workers`
 - Filters empty DataFrames before `pd.concat` (avoids FutureWarning)
 - Ensures date column types even on empty results

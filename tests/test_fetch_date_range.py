@@ -125,7 +125,7 @@ class TestFetchDateRangeValidation:
         mock_fetch = MagicMock(return_value=pd.DataFrame(columns=["Code", "Date"]))
 
         # This would fail before the fix: "2024-1-5" > "2024-01-10" lexicographically
-        result = client._fetch_date_range(
+        _ = client._fetch_date_range(
             start_dt="2024-1-5",
             end_dt="2024-01-10",
             fetch_func=mock_fetch,
