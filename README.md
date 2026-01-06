@@ -95,7 +95,7 @@ api_key = "*****"
 
 ## 動作確認
 
-Google Colab および Python 3.11 で動作確認を行っています。
+Google Colab および Python 3.12 で動作確認を行っています。
 J-Quants API は有償版で継続開発されているため、本ライブラリも今後仕様が変更となる可能性があります。
 Python の EOL を迎えたバージョンはサポート対象外となります。
 Please note we only support Python supported versions. Unsupported versions (after EOL) are not supported.

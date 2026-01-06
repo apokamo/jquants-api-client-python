@@ -1734,3 +1734,129 @@ class TestClientV2ToDataframeDateCoerce:
             client._to_dataframe(
                 data, columns, date_columns=["Date"], date_coerce_columns=["LTD"]
             )
+
+
+class TestClientV2ValidateDateParamCombination:
+    """Tests for _validate_date_param_combination method."""
+
+    # --- Observation 1: Exclusive condition detection ---
+
+    def test_single_value_only_passes(self):
+        """VDP-001: Only single_value specified should pass."""
+        from jquants import ClientV2
+
+        # Should not raise
+        ClientV2._validate_date_param_combination("2024-01-01", None, None)
+        ClientV2._validate_date_param_combination("2024-01-01", "", "")
+
+    def test_range_from_only_passes(self):
+        """VDP-002: Only range_from_value specified should pass."""
+        from jquants import ClientV2
+
+        ClientV2._validate_date_param_combination(None, "2024-01-01", None)
+        ClientV2._validate_date_param_combination("", "2024-01-01", "")
+
+    def test_range_to_only_passes(self):
+        """VDP-003: Only range_to_value specified should pass."""
+        from jquants import ClientV2
+
+        ClientV2._validate_date_param_combination(None, None, "2024-01-31")
+        ClientV2._validate_date_param_combination("", "", "2024-01-31")
+
+    def test_range_from_and_to_passes(self):
+        """VDP-004: Both range_from and range_to specified should pass."""
+        from jquants import ClientV2
+
+        ClientV2._validate_date_param_combination(None, "2024-01-01", "2024-01-31")
+        ClientV2._validate_date_param_combination("", "2024-01-01", "2024-01-31")
+
+    def test_single_and_range_from_raises(self):
+        """VDP-005: single_value and range_from_value raises ValueError."""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2._validate_date_param_combination("2024-01-01", "2024-01-01", None)
+        assert "mutually exclusive" in str(exc_info.value)
+
+    def test_single_and_range_to_raises(self):
+        """VDP-006: single_value and range_to_value raises ValueError."""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2._validate_date_param_combination("2024-01-01", None, "2024-01-31")
+        assert "mutually exclusive" in str(exc_info.value)
+
+    def test_all_specified_raises(self):
+        """VDP-007: All three values specified raises ValueError."""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2._validate_date_param_combination(
+                "2024-01-01", "2024-01-01", "2024-01-31"
+            )
+        assert "mutually exclusive" in str(exc_info.value)
+
+    def test_all_none_passes(self):
+        """VDP-008: All None should pass."""
+        from jquants import ClientV2
+
+        ClientV2._validate_date_param_combination(None, None, None)
+
+    def test_all_empty_string_passes(self):
+        """VDP-009: All empty strings should pass (truthy check)."""
+        from jquants import ClientV2
+
+        ClientV2._validate_date_param_combination("", "", "")
+
+    # --- Observation 2: Error message determinism ---
+
+    def test_default_param_names_in_error_message(self):
+        """VDP-010: Default parameter names produce exact error message."""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2._validate_date_param_combination("2024-01-01", "2024-01-01", None)
+        error_msg = str(exc_info.value)
+        expected = (
+            "'date' and 'from_date'/'to_date' are mutually exclusive. "
+            "Use 'date' for single day, or 'from_date'/'to_date' for date range."
+        )
+        assert error_msg == expected
+
+    def test_custom_param_names_in_error_message(self):
+        """VDP-011: Custom parameter names produce exact error message."""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2._validate_date_param_combination(
+                "2024-01-01",
+                "2024-01-01",
+                None,
+                single_name="disc_date",
+                range_from_name="disc_date_from",
+                range_to_name="disc_date_to",
+            )
+        error_msg = str(exc_info.value)
+        expected = (
+            "'disc_date' and 'disc_date_from'/'disc_date_to' are mutually exclusive. "
+            "Use 'disc_date' for single day, or 'disc_date_from'/'disc_date_to' for date range."
+        )
+        assert error_msg == expected
+
+    def test_range_usage_hint_in_error_message(self):
+        """VDP-012: Custom range_usage_hint produces exact error message."""
+        from jquants import ClientV2
+
+        with pytest.raises(ValueError) as exc_info:
+            ClientV2._validate_date_param_combination(
+                "2024-01-01",
+                "2024-01-01",
+                None,
+                range_usage_hint="'sector_33_code' + 'from_date'/'to_date'",
+            )
+        error_msg = str(exc_info.value)
+        expected = (
+            "'date' and 'from_date'/'to_date' are mutually exclusive. "
+            "Use 'date' for single day, or 'sector_33_code' + 'from_date'/'to_date' for date range."
+        )
+        assert error_msg == expected

@@ -82,7 +82,7 @@ get_*_range()     # Date range with ThreadPoolExecutor(max_workers=5)
 
 ## Code Style
 
-- Python 3.8+ (tomli for <3.11, tomllib for 3.11+)
+- Python 3.12+
 - Black formatter, isort
 - flake8 max-line-length=120
 - mypy type checking
