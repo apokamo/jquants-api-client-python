@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date as date_type
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, List, Optional, Union
 
 import pandas as pd
 import requests
@@ -723,46 +723,13 @@ class ClientV2:
             - max_workers == 1: 直列取得
             - max_workers > 1: 並列取得（Pacer制御下）
         """
-        # Normalize dates to strings
-        start_str = self._normalize_date(start_dt)
-        if end_dt is None:
-            end_str = date_type.today().isoformat()
-        else:
-            end_str = self._normalize_date(end_dt)
-
-        # Validate date range
-        if start_str > end_str:
-            raise ValueError(
-                f"start_dt ({start_str}) must not be after end_dt ({end_str})"
-            )
-
-        # Generate date list
-        dates = self._generate_date_range(start_str, end_str)
-
-        # Fetch data
-        if self._max_workers == 1:
-            # Sequential execution
-            dfs = [self.get_prices_daily_quotes(date=d) for d in dates]
-        else:
-            # Parallel execution with ThreadPoolExecutor
-            def fetch_date(d: str) -> pd.DataFrame:
-                return self.get_prices_daily_quotes(date=d)
-
-            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-                dfs = list(executor.map(fetch_date, dates))
-
-        # Combine results
-        if not dfs or all(df.empty for df in dfs):
-            return pd.DataFrame(columns=constants_v2.EQUITIES_BARS_DAILY_COLUMNS)
-
-        result = pd.concat(dfs, ignore_index=True)
-
-        # Sort by Code, Date
-        sort_cols = [c for c in ["Code", "Date"] if c in result.columns]
-        if sort_cols:
-            result = result.sort_values(sort_cols).reset_index(drop=True)
-
-        return result
+        return self._fetch_date_range(
+            start_dt=start_dt,
+            end_dt=end_dt,
+            fetch_func=lambda d: self.get_prices_daily_quotes(date=d),
+            sort_columns=["Code", "Date"],
+            empty_columns=constants_v2.EQUITIES_BARS_DAILY_COLUMNS,
+        )
 
     # =========================================================================
     # Markets endpoints
@@ -1129,6 +1096,96 @@ class ClientV2:
 
         return dates
 
+    def _fetch_date_range(
+        self,
+        start_dt: Union[str, datetime, date_type],
+        end_dt: Optional[Union[str, datetime, date_type]],
+        fetch_func: Callable[[str], pd.DataFrame],
+        sort_columns: List[str],
+        empty_columns: List[str],
+        date_columns: Optional[List[str]] = None,
+        ensure_all_columns: bool = False,
+    ) -> pd.DataFrame:
+        """
+        日付範囲でデータを取得する共通ロジック。
+
+        Args:
+            start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）
+            end_dt: 終了日（省略時: 今日）
+            fetch_func: 単一日付でデータを取得する関数 (date_str) -> DataFrame
+            sort_columns: ソートキーのカラム名リスト
+            empty_columns: 空DataFrame時のカラム定義
+            date_columns: datetime64変換対象カラム（空結果時の型保証用）
+            ensure_all_columns: True時、カラム補完・順序保証を行う
+
+        Returns:
+            pd.DataFrame: 結合・ソート済みのDataFrame
+
+        Raises:
+            ValueError: start_dt > end_dt の場合
+            ValueError: 日付文字列が YYYYMMDD 形式の場合
+        """
+        # Normalize dates to strings
+        start_str = self._normalize_date(start_dt)
+        if end_dt is None:
+            end_str = date_type.today().isoformat()
+        else:
+            end_str = self._normalize_date(end_dt)
+
+        # Validate date format FIRST (before range comparison)
+        # _generate_date_range will raise ValueError for invalid format like YYYYMMDD
+        try:
+            dates = self._generate_date_range(start_str, end_str)
+        except ValueError as e:
+            # Re-raise with clearer message if it's a format error
+            if "does not match format" in str(e):
+                raise ValueError(
+                    f"Invalid date format. Use YYYY-MM-DD, not YYYYMMDD: {e}"
+                ) from e
+            raise
+
+        # Validate date range (after format validation)
+        if start_str > end_str:
+            raise ValueError(
+                f"start_dt ({start_str}) must not be after end_dt ({end_str})"
+            )
+
+        # Fetch data
+        if self._max_workers == 1:
+            # Sequential execution
+            dfs = [fetch_func(d) for d in dates]
+        else:
+            # Parallel execution with ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                dfs = list(executor.map(fetch_func, dates))
+
+        # Combine results (filter empty DataFrames to avoid FutureWarning)
+        non_empty_dfs = [df for df in dfs if not df.empty]
+        if not non_empty_dfs:
+            # Return empty DataFrame with expected columns and proper dtypes
+            df = pd.DataFrame(columns=empty_columns)
+            if date_columns:
+                for col in date_columns:
+                    if col in df.columns:
+                        df[col] = pd.to_datetime(df[col])
+            return df
+
+        result = pd.concat(non_empty_dfs, ignore_index=True)
+
+        # Ensure all columns are present and in correct order
+        if ensure_all_columns:
+            for col in empty_columns:
+                if col not in result.columns:
+                    result[col] = pd.NA
+            result = result[empty_columns]
+
+        # Sort by specified columns (skip non-existent columns)
+        sort_cols = [c for c in sort_columns if c in result.columns]
+        if sort_cols:
+            result = result.sort_values(sort_cols).reset_index(drop=True)
+
+        return result
+
     # =========================================================================
     # Indices endpoints
     # =========================================================================
@@ -1296,70 +1353,15 @@ class ClientV2:
             - max_workers == 1: 直列取得
             - max_workers > 1: 並列取得（Pacer制御下）
         """
-        # Normalize dates to strings
-        start_str = self._normalize_date(start_dt)
-        if end_dt is None:
-            end_str = date_type.today().isoformat()
-        else:
-            end_str = self._normalize_date(end_dt)
-
-        # Validate date format FIRST (before range comparison)
-        # _generate_date_range will raise ValueError for invalid format like YYYYMMDD
-        try:
-            dates = self._generate_date_range(start_str, end_str)
-        except ValueError as e:
-            # Re-raise with clearer message if it's a format error
-            if "does not match format" in str(e):
-                raise ValueError(
-                    f"Invalid date format. Use YYYY-MM-DD, not YYYYMMDD: {e}"
-                ) from e
-            raise
-
-        # Validate date range (after format validation)
-        if start_str > end_str:
-            raise ValueError(
-                f"start_dt ({start_str}) must not be after end_dt ({end_str})"
-            )
-
-        # Fetch data
-        if self._max_workers == 1:
-            # Sequential execution
-            dfs = [self.get_fins_summary(date=d) for d in dates]
-        else:
-            # Parallel execution with ThreadPoolExecutor
-            def fetch_date(d: str) -> pd.DataFrame:
-                return self.get_fins_summary(date=d)
-
-            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-                dfs = list(executor.map(fetch_date, dates))
-
-        # Combine results (filter empty DataFrames to avoid FutureWarning)
-        non_empty_dfs = [df for df in dfs if not df.empty]
-        if not non_empty_dfs:
-            # Use _to_dataframe to ensure consistent dtype for date columns
-            return self._to_dataframe(
-                [],
-                constants_v2.FINS_SUMMARY_COLUMNS,
-                date_columns=constants_v2.FINS_SUMMARY_DATE_COLUMNS,
-                ensure_all_columns=True,
-            )
-
-        result = pd.concat(non_empty_dfs, ignore_index=True)
-
-        # Ensure all columns are present after concat
-        for col in constants_v2.FINS_SUMMARY_COLUMNS:
-            if col not in result.columns:
-                result[col] = pd.NA
-
-        # Reorder columns
-        result = result[constants_v2.FINS_SUMMARY_COLUMNS]
-
-        # Sort by DiscDate, DiscTime, Code
-        sort_cols = [c for c in ["DiscDate", "DiscTime", "Code"] if c in result.columns]
-        if sort_cols:
-            result = result.sort_values(sort_cols).reset_index(drop=True)
-
-        return result
+        return self._fetch_date_range(
+            start_dt=start_dt,
+            end_dt=end_dt,
+            fetch_func=lambda d: self.get_fins_summary(date=d),
+            sort_columns=["DiscDate", "DiscTime", "Code"],
+            empty_columns=constants_v2.FINS_SUMMARY_COLUMNS,
+            date_columns=constants_v2.FINS_SUMMARY_DATE_COLUMNS,
+            ensure_all_columns=True,
+        )
 
     # =========================================================================
     # Derivatives endpoints
@@ -1424,43 +1426,10 @@ class ClientV2:
             - max_workers > 1: 並列取得（Pacer制御下）
             - 長期間取得時は max_workers の調整を推奨
         """
-        # Normalize dates to strings
-        start_str = self._normalize_date(start_dt)
-        if end_dt is None:
-            end_str = date_type.today().isoformat()
-        else:
-            end_str = self._normalize_date(end_dt)
-
-        # Validate date range
-        if start_str > end_str:
-            raise ValueError(
-                f"start_dt ({start_str}) must not be after end_dt ({end_str})"
-            )
-
-        # Generate date list
-        dates = self._generate_date_range(start_str, end_str)
-
-        # Fetch data
-        if self._max_workers == 1:
-            # Sequential execution
-            dfs = [self.get_options_225_daily(date=d) for d in dates]
-        else:
-            # Parallel execution with ThreadPoolExecutor
-            def fetch_date(d: str) -> pd.DataFrame:
-                return self.get_options_225_daily(date=d)
-
-            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-                dfs = list(executor.map(fetch_date, dates))
-
-        # Combine results
-        if not dfs or all(df.empty for df in dfs):
-            return pd.DataFrame(columns=constants_v2.DERIVATIVES_OPTIONS_225_COLUMNS)
-
-        result = pd.concat(dfs, ignore_index=True)
-
-        # Sort by Code, Date
-        sort_cols = [c for c in ["Code", "Date"] if c in result.columns]
-        if sort_cols:
-            result = result.sort_values(sort_cols).reset_index(drop=True)
-
-        return result
+        return self._fetch_date_range(
+            start_dt=start_dt,
+            end_dt=end_dt,
+            fetch_func=lambda d: self.get_options_225_daily(date=d),
+            sort_columns=["Code", "Date"],
+            empty_columns=constants_v2.DERIVATIVES_OPTIONS_225_COLUMNS,
+        )
