@@ -53,6 +53,14 @@ J-Quants API Python client library for Japanese stock market data (JPX).
 - **V2 API** (current): https://jpx-jquants.com/ja/spec/
   - プラン別エンドポイント一覧: https://jpx-jquants.com/ja/spec/data-spec
 
+## Documentation Map (Progressive Disclosure)
+
+Start here and follow links only as needed.
+
+- `README.md`: End-user quickstart (install/config/basic usage).
+- `docs/design/v2/README.md`: Contributor/agent index for ClientV2 design.
+  - Read when: adding/changing endpoints, error handling, pagination, rate limiting, DataFrame contracts.
+
 ## Package Structure
 
 ```

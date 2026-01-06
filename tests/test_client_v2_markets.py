@@ -305,7 +305,7 @@ class TestGetMarketsShortSelling:
                 },
             ]
 
-            result = client.get_markets_short_selling()
+            result = client.get_markets_short_selling(date="2024-01-04")
 
             assert isinstance(result, pd.DataFrame)
 
@@ -316,7 +316,7 @@ class TestGetMarketsShortSelling:
         with patch.object(client, "_paginated_get") as mock_get:
             mock_get.return_value = []
 
-            result = client.get_markets_short_selling()
+            result = client.get_markets_short_selling(date="2024-01-04")
 
             assert isinstance(result, pd.DataFrame)
             assert len(result) == 0
@@ -337,7 +337,7 @@ class TestGetMarketsShortSelling:
                 },
             ]
 
-            result = client.get_markets_short_selling()
+            result = client.get_markets_short_selling(date="2024-01-04")
 
             assert pd.api.types.is_datetime64_any_dtype(result["Date"])
 
@@ -363,7 +363,7 @@ class TestGetMarketsShortSelling:
                 },
             ]
 
-            result = client.get_markets_short_selling()
+            result = client.get_markets_short_selling(date="2024-01-04")
 
             assert result.iloc[0]["S33"] == "0050"
             assert result.iloc[1]["S33"] == "0100"
@@ -395,19 +395,21 @@ class TestGetMarketsShortSelling:
             assert call_kwargs["params"]["date"] == "2024-01-04"
 
     def test_from_to_parameters_passed(self):
-        """from_date and to_date parameters should be passed to API."""
+        """from_date and to_date parameters should be passed to API with sector_33_code."""
         client = ClientV2(api_key="test_api_key")
 
         with patch.object(client, "_paginated_get") as mock_get:
             mock_get.return_value = []
 
             client.get_markets_short_selling(
+                sector_33_code="50",
                 from_date="2024-01-01",
                 to_date="2024-01-31",
             )
 
             mock_get.assert_called_once()
             call_kwargs = mock_get.call_args[1]
+            assert call_kwargs["params"]["s33"] == "50"
             assert call_kwargs["params"]["from"] == "2024-01-01"
             assert call_kwargs["params"]["to"] == "2024-01-31"
 
@@ -419,6 +421,7 @@ class TestGetMarketsShortSelling:
 
         with pytest.raises(ValueError) as exc_info:
             client.get_markets_short_selling(
+                sector_33_code="50",
                 date="2024-01-04",
                 from_date="2024-01-01",
             )
@@ -826,7 +829,7 @@ class TestGetMarketsDailyMarginInterest:
                 },
             ]
 
-            result = client.get_markets_daily_margin_interest()
+            result = client.get_markets_daily_margin_interest(date="2024-01-04")
 
             assert isinstance(result, pd.DataFrame)
 
@@ -837,7 +840,7 @@ class TestGetMarketsDailyMarginInterest:
         with patch.object(client, "_paginated_get") as mock_get:
             mock_get.return_value = []
 
-            result = client.get_markets_daily_margin_interest()
+            result = client.get_markets_daily_margin_interest(date="2024-01-04")
 
             assert isinstance(result, pd.DataFrame)
             assert len(result) == 0
@@ -880,7 +883,7 @@ class TestGetMarketsDailyMarginInterest:
                 },
             ]
 
-            result = client.get_markets_daily_margin_interest()
+            result = client.get_markets_daily_margin_interest(date="2024-01-04")
 
             assert pd.api.types.is_datetime64_any_dtype(result["PubDate"])
             assert pd.api.types.is_datetime64_any_dtype(result["AppDate"])
@@ -922,7 +925,7 @@ class TestGetMarketsDailyMarginInterest:
                 },
             ]
 
-            result = client.get_markets_daily_margin_interest()
+            result = client.get_markets_daily_margin_interest(date="2024-01-04")
 
             assert "PubReason.DailyPublication" in result.columns
             assert result.iloc[0]["PubReason.DailyPublication"] == "1"
@@ -993,7 +996,7 @@ class TestGetMarketsDailyMarginInterest:
                 },
             ]
 
-            result = client.get_markets_daily_margin_interest()
+            result = client.get_markets_daily_margin_interest(date="2024-01-04")
 
             assert result.iloc[0]["Code"] == "13010"
             assert result.iloc[1]["Code"] == "13020"
@@ -1025,19 +1028,21 @@ class TestGetMarketsDailyMarginInterest:
             assert call_kwargs["params"]["date"] == "2024-01-04"
 
     def test_from_to_parameters_passed(self):
-        """from_date and to_date parameters should be passed to API."""
+        """from_date and to_date parameters should be passed to API with code."""
         client = ClientV2(api_key="test_api_key")
 
         with patch.object(client, "_paginated_get") as mock_get:
             mock_get.return_value = []
 
             client.get_markets_daily_margin_interest(
+                code="2780",
                 from_date="2024-01-01",
                 to_date="2024-01-31",
             )
 
             mock_get.assert_called_once()
             call_kwargs = mock_get.call_args[1]
+            assert call_kwargs["params"]["code"] == "2780"
             assert call_kwargs["params"]["from"] == "2024-01-01"
             assert call_kwargs["params"]["to"] == "2024-01-31"
 
@@ -1049,6 +1054,7 @@ class TestGetMarketsDailyMarginInterest:
 
         with pytest.raises(ValueError) as exc_info:
             client.get_markets_daily_margin_interest(
+                code="2780",
                 date="2024-01-04",
                 from_date="2024-01-01",
             )
