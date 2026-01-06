@@ -91,5 +91,26 @@ Common contract:
 - Fetch strategy depends on `ClientV2.max_workers`:
   - `max_workers == 1`: sequential (default, safest)
   - `max_workers > 1`: parallel via `ThreadPoolExecutor` under Pacer control
-- Results are concatenated and re-sorted using the endpoint’s natural sort keys.
+- Results are concatenated and re-sorted using the endpoint's natural sort keys.
 - If there is no data across the requested dates, return an empty `DataFrame` with the expected column set.
+
+### Internal: `_fetch_date_range`
+
+Common implementation for `*_range()` helpers. Extracted in Issue #40 (Phase 3.7).
+
+Parameters:
+- `start_dt`, `end_dt`: Date range (normalized via `_normalize_date()`)
+- `fetch_func`: Single-date fetch function (e.g., `get_prices_daily_quotes`)
+- `sort_columns`: Sort keys for final DataFrame
+- `empty_columns`: Column list for empty result
+- `date_columns`: Columns to convert to `datetime64[ns]` (ensures type safety on empty results)
+- `ensure_all_columns`: If True, reindex to guarantee all columns present with correct order
+
+Behavior:
+- Normalizes date strings (non-zero-padded like "2024-1-5" → "2024-01-05")
+- Validates `start_dt <= end_dt` (after normalization, safe string comparison)
+- Rejects non-YYYY-MM-DD formats with user-friendly error messages
+- Dispatches to sequential or parallel execution based on `max_workers`
+- Filters empty DataFrames before `pd.concat` (avoids FutureWarning)
+- Ensures date column types even on empty results
+- Sorts result by `sort_columns`
