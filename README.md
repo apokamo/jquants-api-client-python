@@ -37,77 +37,41 @@ print(df)
 
 API レスポンスが Dataframe の形式で取得できます。
 
-より具体的な使用例は [サンプルノートブック(/examples)](examples) をご参照ください。
-
 ## 対応 API
 
-### ラッパー群　
+V2 API の各エンドポイントに対応したメソッドを提供しています。
 
-J-Quants API の各 API エンドポイントに対応しています。
+### 基本エンドポイント
 
------------------- Free plan or higher is required ------------------
+ご契約のプランに応じて、以下のメソッドが利用可能です。
 
-- get_refresh_token
-- get_id_token
-- get_listed_info
-- get_prices_daily_quotes
-- get_fins_statements
-- get_fins_announcement
+#### Free プラン以上
+- `get_listed_info`: 銘柄マスター
+- `get_prices_daily_quotes`: 株価四本値
+- `get_fins_summary`: 決算短信サマリー（一括取得）
+- `get_fins_announcement`: 決算発表予定
 
------------------- Light plan or higher is required ------------------
+#### Light プラン以上
+- `get_indices_topix`: TOPIX指数四本値
 
-- get_markets_trades_spec
-- get_indices_topix
+#### Standard プラン以上
+- `get_options_225_daily`: 日経225オプション日足
+- `get_markets_weekly_margin_interest`: 信用取引週末残高
+- `get_markets_short_selling`: 業種別空売り比率
+- `get_indices`: 指数四本値
+- `get_markets_short_selling_positions`: 空売り残高報告
+- `get_markets_daily_margin_interest`: 信用取引残高（日々公表分）
 
------------------- Standard plan or higher is required ------------------
+#### Premium プラン以上
+- `get_markets_breakdown`: 売買内訳データ
 
-- get_option_index_option
-- get_markets_weekly_margin_interest
-- get_markets_short_selling
-- get_indices
-- get_markets_short_selling_positions
-- get_markets_daily_margin_interest
+### 期間指定・一括取得ユーティリティ (`*_range`)
 
------------------- Premium plan or higher is required ------------------
+日付範囲を指定してデータを一括取得し、結合した DataFrame を返す便利なメソッドです。内部で `max_workers` による並列取得が可能です。
 
-- get_markets_breakdown
-- get_prices_prices_am
-- get_fins_dividend
-- get_fins_fs_details
-- get_derivatives_futures
-- get_derivatives_options
-
-### ユーティリティ群
-
-業種や市場区分一覧などを返します。
-
-- get_market_segments
-- get_17_sectors
-- get_33_sectors
-
-日付範囲を指定して一括でデータ取得して、取得したデータを結合して返すようなユーティリティが用意されています。
-
------------------- Free plan or higher is required ------------------
-
-- get_list
-- get_price_range
-- get_statements_range
-
------------------- Standard plan or higher is required ------------------
-
-- get_weekly_margin_range
-- get_short_selling_range
-- get_index_option_range
-- get_markets_short_selling_positions_range
-- get_daily_margin_interest_range
-
------------------- Premium plan or higher is required ------------------
-
-- get_breakdown_range
-- get_dividend_range
-- get_fins_fs_details_range
-- get_derivatives_futures_range
-- get_derivatives_options_range
+- `get_price_range`: 株価四本値
+- `get_summary_range`: 決算短信サマリー
+- `get_options_225_daily_range`: 日経225オプション日足
 
 ## 設定
 
