@@ -729,6 +729,7 @@ class ClientV2:
             fetch_func=lambda d: self.get_prices_daily_quotes(date=d),
             sort_columns=["Code", "Date"],
             empty_columns=constants_v2.EQUITIES_BARS_DAILY_COLUMNS,
+            date_columns=["Date"],
         )
 
     # =========================================================================
@@ -1073,13 +1074,30 @@ class ClientV2:
         self,
         dt: Union[str, datetime, date_type],
     ) -> str:
-        """Convert date/datetime/string to YYYY-MM-DD string."""
+        """Convert date/datetime/string to YYYY-MM-DD string (zero-padded).
+
+        Args:
+            dt: date, datetime, or date string (YYYY-MM-DD, accepts non-zero-padded)
+
+        Returns:
+            str: Normalized YYYY-MM-DD string (always zero-padded)
+
+        Raises:
+            ValueError: If string cannot be parsed as YYYY-MM-DD format
+        """
         if isinstance(dt, datetime):
             return dt.date().isoformat()
         elif isinstance(dt, date_type):
             return dt.isoformat()
         else:
-            return str(dt)
+            # Parse and re-format to ensure zero-padded YYYY-MM-DD
+            try:
+                parsed = datetime.strptime(str(dt), "%Y-%m-%d").date()
+                return parsed.isoformat()
+            except ValueError:
+                raise ValueError(
+                    f"Invalid date format '{dt}'. Expected YYYY-MM-DD (e.g., '2024-01-05')"
+                )
 
     def _generate_date_range(self, start: str, end: str) -> list[str]:
         """Generate list of YYYY-MM-DD strings from start to end (inclusive)."""
@@ -1132,23 +1150,14 @@ class ClientV2:
         else:
             end_str = self._normalize_date(end_dt)
 
-        # Validate date format FIRST (before range comparison)
-        # _generate_date_range will raise ValueError for invalid format like YYYYMMDD
-        try:
-            dates = self._generate_date_range(start_str, end_str)
-        except ValueError as e:
-            # Re-raise with clearer message if it's a format error
-            if "does not match format" in str(e):
-                raise ValueError(
-                    f"Invalid date format. Use YYYY-MM-DD, not YYYYMMDD: {e}"
-                ) from e
-            raise
-
-        # Validate date range (after format validation)
+        # Validate date range (normalized strings are safe for comparison)
         if start_str > end_str:
             raise ValueError(
                 f"start_dt ({start_str}) must not be after end_dt ({end_str})"
             )
+
+        # Generate date range (dates are already validated by _normalize_date)
+        dates = self._generate_date_range(start_str, end_str)
 
         # Fetch data
         if self._max_workers == 1:
@@ -1432,4 +1441,5 @@ class ClientV2:
             fetch_func=lambda d: self.get_options_225_daily(date=d),
             sort_columns=["Code", "Date"],
             empty_columns=constants_v2.DERIVATIVES_OPTIONS_225_COLUMNS,
+            date_columns=["Date"],
         )

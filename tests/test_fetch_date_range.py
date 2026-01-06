@@ -119,6 +119,27 @@ class TestFetchDateRangeValidation:
         error_msg = str(exc_info.value)
         assert "YYYY-MM-DD" in error_msg or "YYYYMMDD" in error_msg
 
+    def test_non_zero_padded_date_is_normalized(self):
+        """Non-zero-padded dates (e.g., '2024-1-5') should be normalized."""
+        client = ClientV2(api_key="test_api_key")
+        mock_fetch = MagicMock(return_value=pd.DataFrame(columns=["Code", "Date"]))
+
+        # This would fail before the fix: "2024-1-5" > "2024-01-10" lexicographically
+        result = client._fetch_date_range(
+            start_dt="2024-1-5",
+            end_dt="2024-01-10",
+            fetch_func=mock_fetch,
+            sort_columns=["Code", "Date"],
+            empty_columns=["Code", "Date"],
+        )
+
+        # Should succeed and call fetch_func 6 times (Jan 5-10)
+        assert mock_fetch.call_count == 6
+        # Dates passed to fetch_func should be normalized (zero-padded)
+        calls = [call[0][0] for call in mock_fetch.call_args_list]
+        assert "2024-01-05" in calls
+        assert "2024-01-10" in calls
+
 
 class TestFetchDateRangeEmptyResults:
     """Empty result handling tests."""
