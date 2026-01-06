@@ -325,6 +325,45 @@ class ClientV2:
         else:
             raise JQuantsAPIError(message, status_code, response_body)
 
+    @staticmethod
+    def _validate_date_param_combination(
+        single_value: str | None,
+        range_from_value: str | None,
+        range_to_value: str | None,
+        single_name: str = "date",
+        range_from_name: str = "from_date",
+        range_to_name: str = "to_date",
+        range_usage_hint: str | None = None,
+    ) -> None:
+        """
+        Validate that single date and date range parameters are mutually exclusive.
+
+        Args:
+            single_value: Value of the single date parameter
+            range_from_value: Value of the range start date parameter
+            range_to_value: Value of the range end date parameter
+            single_name: Name of the single date parameter for error message
+            range_from_name: Name of the range start parameter for error message
+            range_to_name: Name of the range end parameter for error message
+            range_usage_hint: Custom hint for date range usage in error message.
+                If None, defaults to "'{range_from_name}'/'{range_to_name}'".
+                Example: "'sector_33_code' + 'from_date'/'to_date'"
+
+        Raises:
+            ValueError: If both single date and any range parameter are specified
+
+        Note:
+            Truthy check is used: both None and empty string "" are treated as "not specified".
+            This maintains compatibility with existing code patterns.
+        """
+        if single_value and (range_from_value or range_to_value):
+            if range_usage_hint is None:
+                range_usage_hint = f"'{range_from_name}'/'{range_to_name}'"
+            raise ValueError(
+                f"'{single_name}' and '{range_from_name}'/'{range_to_name}' are mutually exclusive. "
+                f"Use '{single_name}' for single day, or {range_usage_hint} for date range."
+            )
+
     def _request(
         self,
         method: str,
@@ -660,12 +699,7 @@ class ClientV2:
                 "Either 'code' or 'date' is required for get_prices_daily_quotes()"
             )
 
-        # date と from_date/to_date は排他
-        if date and (from_date or to_date):
-            raise ValueError(
-                "'date' and 'from_date'/'to_date' are mutually exclusive. "
-                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
-            )
+        self._validate_date_param_combination(date, from_date, to_date)
 
         params: dict = {}
         if code:
@@ -824,12 +858,7 @@ class ClientV2:
         Raises:
             ValueError: date と from_date/to_date を同時に指定した場合
         """
-        # date と from_date/to_date は排他
-        if date and (from_date or to_date):
-            raise ValueError(
-                "'date' and 'from_date'/'to_date' are mutually exclusive. "
-                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
-            )
+        self._validate_date_param_combination(date, from_date, to_date)
 
         params: dict[str, str] = {}
         if code:
@@ -883,12 +912,12 @@ class ClientV2:
                 "Please specify 'sector_33_code' when using date range."
             )
 
-        # date と from_date/to_date は排他
-        if date and (from_date or to_date):
-            raise ValueError(
-                "'date' and 'from_date'/'to_date' are mutually exclusive. "
-                "Use 'date' for single day, or 'sector_33_code' + 'from_date'/'to_date' for date range."
-            )
+        self._validate_date_param_combination(
+            date,
+            from_date,
+            to_date,
+            range_usage_hint="'sector_33_code' + 'from_date'/'to_date'",
+        )
 
         # date または sector_33_code のいずれかが必須
         if not date and not sector_33_code:
@@ -937,12 +966,7 @@ class ClientV2:
         Raises:
             ValueError: date と from_date/to_date を同時に指定した場合
         """
-        # date と from_date/to_date は排他
-        if date and (from_date or to_date):
-            raise ValueError(
-                "'date' and 'from_date'/'to_date' are mutually exclusive. "
-                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
-            )
+        self._validate_date_param_combination(date, from_date, to_date)
 
         params: dict[str, str] = {}
         if code:
@@ -996,12 +1020,14 @@ class ClientV2:
         Raises:
             ValueError: disc_date と disc_date_from/disc_date_to を同時に指定した場合
         """
-        # disc_date と disc_date_from/disc_date_to は排他
-        if disc_date and (disc_date_from or disc_date_to):
-            raise ValueError(
-                "'disc_date' and 'disc_date_from'/'disc_date_to' are mutually exclusive. "
-                "Use 'disc_date' for single day, or 'disc_date_from'/'disc_date_to' for date range."
-            )
+        self._validate_date_param_combination(
+            disc_date,
+            disc_date_from,
+            disc_date_to,
+            single_name="disc_date",
+            range_from_name="disc_date_from",
+            range_to_name="disc_date_to",
+        )
 
         params: dict[str, str] = {}
         if code:
@@ -1057,12 +1083,12 @@ class ClientV2:
                 "Please specify 'code' when using date range."
             )
 
-        # date と from_date/to_date は排他
-        if date and (from_date or to_date):
-            raise ValueError(
-                "'date' and 'from_date'/'to_date' are mutually exclusive. "
-                "Use 'date' for single day, or 'code' + 'from_date'/'to_date' for date range."
-            )
+        self._validate_date_param_combination(
+            date,
+            from_date,
+            to_date,
+            range_usage_hint="'code' + 'from_date'/'to_date'",
+        )
 
         # code または date のいずれかが必須
         if not code and not date:
@@ -1167,12 +1193,7 @@ class ClientV2:
         if not code and not date:
             raise ValueError("Either 'code' or 'date' is required for get_indices()")
 
-        # date と from_date/to_date は排他
-        if date and (from_date or to_date):
-            raise ValueError(
-                "'date' and 'from_date'/'to_date' are mutually exclusive. "
-                "Use 'date' for single day, or 'from_date'/'to_date' for date range."
-            )
+        self._validate_date_param_combination(date, from_date, to_date)
 
         params: dict[str, str] = {}
         if code:
