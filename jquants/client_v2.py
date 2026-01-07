@@ -462,7 +462,7 @@ class ClientV2:
             if response.status_code == 429:
                 wait_seconds = self._calculate_retry_wait(response, attempt)
                 if wait_seconds is None:
-                    # Retry not allowed → error handler (includes close)
+                    # Retry not allowed → error handler (close is called inside)
                     self._handle_error_response(response)
                 else:
                     # Retry allowed → close and wait
