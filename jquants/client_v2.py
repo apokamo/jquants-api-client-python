@@ -364,6 +364,57 @@ class ClientV2:
                 f"Use '{single_name}' for single day, or {range_usage_hint} for date range."
             )
 
+    def _parse_retry_after(self, response: requests.Response) -> int | None:
+        """Parse Retry-After header value.
+
+        Args:
+            response: HTTP response object
+
+        Returns:
+            int: Valid seconds (0 or positive) from Retry-After header
+            None: Header missing or invalid (non-integer, negative)
+
+        Note:
+            RFC 7231 Section 7.1.3 specifies Retry-After as non-negative decimal integer.
+            HTTP-date format is not supported as J-Quants API doesn't use it.
+        """
+        header_value = response.headers.get("Retry-After")
+        if header_value is None:
+            return None
+        try:
+            seconds = int(header_value)
+            # RFC 7231: non-negative decimal integer (0 is valid)
+            return seconds if seconds >= 0 else None
+        except ValueError:
+            return None
+
+    def _calculate_retry_wait(
+        self, response: requests.Response, attempt: int
+    ) -> int | None:
+        """Calculate wait seconds for 429 retry.
+
+        Pure function for calculating retry wait time. No side effects.
+
+        Args:
+            response: 429 response object
+            attempt: Current attempt number (0-indexed)
+
+        Returns:
+            int: Wait seconds (retry allowed)
+            None: Retry not allowed (disabled or max attempts reached)
+        """
+        # Retry disabled or max attempts reached → None
+        if not self._retry_on_429 or attempt >= self._retry_max_attempts:
+            return None
+
+        # Parse Retry-After header
+        parsed_seconds = self._parse_retry_after(response)
+
+        # Explicit None check (0 is valid value)
+        if parsed_seconds is not None:
+            return parsed_seconds
+        return self._retry_wait_seconds
+
     def _request(
         self,
         method: str,
@@ -409,15 +460,15 @@ class ClientV2:
             )
 
             if response.status_code == 429:
-                # Check if retry is disabled or max attempts reached
-                is_last_attempt = attempt >= self._retry_max_attempts
-                if not self._retry_on_429 or is_last_attempt:
+                wait_seconds = self._calculate_retry_wait(response, attempt)
+                if wait_seconds is None:
+                    # Retry not allowed → error handler (includes close)
                     self._handle_error_response(response)
-                # Close response to release connection back to pool
-                response.close()
-                # Wait and retry
-                time.sleep(self._retry_wait_seconds)
-                continue
+                else:
+                    # Retry allowed → close and wait
+                    response.close()
+                    time.sleep(wait_seconds)
+                    continue
 
             if not response.ok:
                 self._handle_error_response(response)

@@ -304,6 +304,7 @@ class TestRequestPathIntegration:
             mock_response_429.status_code = 429
             mock_response_429.text = '{"message": "Rate limit exceeded"}'
             mock_response_429.json.return_value = {"message": "Rate limit exceeded"}
+            mock_response_429.headers = {}  # No Retry-After header
 
             mock_response_200 = MagicMock()
             mock_response_200.ok = True
@@ -343,6 +344,7 @@ class TestRequestPathIntegration:
             mock_response.status_code = 429
             mock_response.text = '{"message": "Rate limit exceeded"}'
             mock_response.json.return_value = {"message": "Rate limit exceeded"}
+            mock_response.headers = {}  # No Retry-After header
             mock_session.request.return_value = mock_response
             mock_session_method.return_value = mock_session
 
@@ -375,6 +377,7 @@ class TestRequestPathIntegration:
             mock_response.status_code = 429
             mock_response.text = '{"message": "Rate limit exceeded"}'
             mock_response.json.return_value = {"message": "Rate limit exceeded"}
+            mock_response.headers = {}  # No Retry-After header
             mock_session.request.return_value = mock_response
             mock_session_method.return_value = mock_session
 
