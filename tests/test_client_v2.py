@@ -1860,3 +1860,176 @@ class TestClientV2ValidateDateParamCombination:
             "Use 'date' for single day, or 'sector_33_code' + 'from_date'/'to_date' for date range."
         )
         assert error_msg == expected
+
+
+class TestParseRetryAfter:
+    """Test _parse_retry_after method (PARSE-001~005)."""
+
+    def _create_mock_response(self, retry_after_value: str | None) -> MagicMock:
+        """Helper to create mock response with Retry-After header."""
+        mock_response = MagicMock()
+        if retry_after_value is not None:
+            mock_response.headers = {"Retry-After": retry_after_value}
+        else:
+            mock_response.headers = {}
+        return mock_response
+
+    def test_positive_integer_returns_value(self):
+        """PARSE-001: Positive integer Retry-After should return that value."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        mock_response = self._create_mock_response("60")
+
+        result = client._parse_retry_after(mock_response)
+
+        assert result == 60
+
+    def test_zero_returns_zero(self):
+        """PARSE-002: Retry-After: 0 should return 0 (RFC 7231 compliant)."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        mock_response = self._create_mock_response("0")
+
+        result = client._parse_retry_after(mock_response)
+
+        assert result == 0
+
+    def test_negative_returns_none(self):
+        """PARSE-003: Negative Retry-After should return None (invalid)."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        mock_response = self._create_mock_response("-1")
+
+        result = client._parse_retry_after(mock_response)
+
+        assert result is None
+
+    def test_non_integer_returns_none(self):
+        """PARSE-004: Non-integer Retry-After should return None."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+
+        # Test various non-integer values
+        for invalid_value in ["abc", "1.5", "", "  ", "Wed, 21 Oct 2025 07:28:00 GMT"]:
+            mock_response = self._create_mock_response(invalid_value)
+            result = client._parse_retry_after(mock_response)
+            assert result is None, f"Expected None for '{invalid_value}', got {result}"
+
+    def test_missing_header_returns_none(self):
+        """PARSE-005: Missing Retry-After header should return None."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key")
+        mock_response = self._create_mock_response(None)
+
+        result = client._parse_retry_after(mock_response)
+
+        assert result is None
+
+
+class TestCalculateRetryWait:
+    """Test _calculate_retry_wait method (CALC-001~008)."""
+
+    def _create_mock_response(self, retry_after_value: str | None) -> MagicMock:
+        """Helper to create mock response with Retry-After header."""
+        mock_response = MagicMock()
+        if retry_after_value is not None:
+            mock_response.headers = {"Retry-After": retry_after_value}
+        else:
+            mock_response.headers = {}
+        return mock_response
+
+    def test_retry_disabled_returns_none(self):
+        """CALC-001: retry_on_429=False should return None."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_on_429=False)
+        mock_response = self._create_mock_response("60")
+
+        result = client._calculate_retry_wait(mock_response, attempt=0)
+
+        assert result is None
+
+    def test_max_attempts_reached_returns_none(self):
+        """CALC-002: attempt >= retry_max_attempts should return None."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_max_attempts=3)
+        mock_response = self._create_mock_response("60")
+
+        # attempt=3 means we've already tried 4 times (0, 1, 2, 3)
+        result = client._calculate_retry_wait(mock_response, attempt=3)
+
+        assert result is None
+
+    def test_retry_after_header_used_when_present(self):
+        """CALC-003: Retry-After header value should be used when present."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_wait_seconds=310)
+        mock_response = self._create_mock_response("120")
+
+        result = client._calculate_retry_wait(mock_response, attempt=0)
+
+        assert result == 120  # Header value, not fallback
+
+    def test_retry_after_zero_returns_zero(self):
+        """CALC-004: Retry-After: 0 should return 0 (immediate retry)."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_wait_seconds=310)
+        mock_response = self._create_mock_response("0")
+
+        result = client._calculate_retry_wait(mock_response, attempt=0)
+
+        assert result == 0
+
+    def test_fallback_to_retry_wait_seconds(self):
+        """CALC-005: Missing Retry-After should use retry_wait_seconds."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_wait_seconds=600)
+        mock_response = self._create_mock_response(None)
+
+        result = client._calculate_retry_wait(mock_response, attempt=0)
+
+        assert result == 600
+
+    def test_invalid_retry_after_uses_fallback(self):
+        """CALC-006: Invalid Retry-After should use retry_wait_seconds."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_wait_seconds=310)
+        mock_response = self._create_mock_response("invalid")
+
+        result = client._calculate_retry_wait(mock_response, attempt=0)
+
+        assert result == 310
+
+    def test_retry_max_attempts_zero_returns_none(self):
+        """CALC-007: retry_max_attempts=0 should always return None."""
+        from jquants import ClientV2
+
+        client = ClientV2(api_key="test_api_key", retry_max_attempts=0)
+        mock_response = self._create_mock_response("60")
+
+        result = client._calculate_retry_wait(mock_response, attempt=0)
+
+        assert result is None
+
+    def test_first_attempt_within_limit_returns_wait(self):
+        """CALC-008: First attempt within limit should return wait seconds."""
+        from jquants import ClientV2
+
+        client = ClientV2(
+            api_key="test_api_key", retry_max_attempts=3, retry_wait_seconds=310
+        )
+        mock_response = self._create_mock_response(None)
+
+        result = client._calculate_retry_wait(mock_response, attempt=0)
+
+        assert result == 310

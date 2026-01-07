@@ -304,6 +304,7 @@ class TestRequestPathIntegration:
             mock_response_429.status_code = 429
             mock_response_429.text = '{"message": "Rate limit exceeded"}'
             mock_response_429.json.return_value = {"message": "Rate limit exceeded"}
+            mock_response_429.headers = {}  # No Retry-After header
 
             mock_response_200 = MagicMock()
             mock_response_200.ok = True
@@ -327,6 +328,46 @@ class TestRequestPathIntegration:
                     # 429レスポンスがcloseされる（接続プール解放）
                     mock_response_429.close.assert_called_once()
 
+    def test_429_retry_uses_retry_after_header(self):
+        """429 + Retry-After ヘッダ → ヘッダ値で待機"""
+        from jquants import ClientV2
+
+        client = ClientV2(
+            api_key="test_api_key",
+            retry_on_429=True,
+            retry_wait_seconds=310,  # デフォルト値（使われないはず）
+            retry_max_attempts=3,
+        )
+
+        with patch.object(client, "_request_session") as mock_session_method:
+            mock_session = MagicMock()
+
+            # 1回目: 429 with Retry-After, 2回目: 200
+            mock_response_429 = MagicMock()
+            mock_response_429.ok = False
+            mock_response_429.status_code = 429
+            mock_response_429.text = '{"message": "Rate limit exceeded"}'
+            mock_response_429.json.return_value = {"message": "Rate limit exceeded"}
+            mock_response_429.headers = {"Retry-After": "5"}  # 5秒待機指示
+
+            mock_response_200 = MagicMock()
+            mock_response_200.ok = True
+            mock_response_200.status_code = 200
+
+            mock_session.request.side_effect = [mock_response_429, mock_response_200]
+            mock_session_method.return_value = mock_session
+
+            with patch.object(client._pacer, "wait", return_value=0.0):
+                with patch("time.sleep") as mock_sleep:
+                    response = client._request("GET", "/test")
+
+                    # 成功レスポンスが返る
+                    assert response.status_code == 200
+                    # Retry-Afterヘッダ値（5秒）で待機（デフォルト310秒ではない）
+                    mock_sleep.assert_called_once_with(5)
+                    # 429レスポンスがcloseされる
+                    mock_response_429.close.assert_called_once()
+
     def test_429_retry_disabled_raises_immediately(self):
         """429 + retry_on_429=False → 即例外"""
         from jquants import ClientV2
@@ -343,6 +384,7 @@ class TestRequestPathIntegration:
             mock_response.status_code = 429
             mock_response.text = '{"message": "Rate limit exceeded"}'
             mock_response.json.return_value = {"message": "Rate limit exceeded"}
+            mock_response.headers = {}  # No Retry-After header
             mock_session.request.return_value = mock_response
             mock_session_method.return_value = mock_session
 
@@ -370,12 +412,19 @@ class TestRequestPathIntegration:
 
         with patch.object(client, "_request_session") as mock_session_method:
             mock_session = MagicMock()
-            mock_response = MagicMock()
-            mock_response.ok = False
-            mock_response.status_code = 429
-            mock_response.text = '{"message": "Rate limit exceeded"}'
-            mock_response.json.return_value = {"message": "Rate limit exceeded"}
-            mock_session.request.return_value = mock_response
+
+            # 各リクエストで異なるレスポンスを返す（close検証のため）
+            mock_responses = []
+            for _ in range(3):
+                resp = MagicMock()
+                resp.ok = False
+                resp.status_code = 429
+                resp.text = '{"message": "Rate limit exceeded"}'
+                resp.json.return_value = {"message": "Rate limit exceeded"}
+                resp.headers = {}  # No Retry-After header
+                mock_responses.append(resp)
+
+            mock_session.request.side_effect = mock_responses
             mock_session_method.return_value = mock_session
 
             with patch.object(client._pacer, "wait", return_value=0.0):
@@ -388,6 +437,12 @@ class TestRequestPathIntegration:
                     assert mock_sleep.call_count == 2
                     # sessionが3回呼ばれる（初回 + リトライ2回）
                     assert mock_session.request.call_count == 3
+                    # 全レスポンスがcloseされる（接続プール解放）
+                    mock_responses[0].close.assert_called_once()
+                    mock_responses[1].close.assert_called_once()
+                    mock_responses[
+                        2
+                    ].close.assert_called_once()  # 上限到達時も明示的にclose
 
     def test_connection_pool_uses_max_workers(self):
         """接続プールに_max_workersが反映される"""

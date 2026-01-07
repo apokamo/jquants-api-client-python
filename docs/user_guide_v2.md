@@ -146,10 +146,11 @@ J-Quants API はプランごとにリクエスト上限が定められていま�
 万が一レート制限を超えた場合（HTTP 429エラー）、クライアントは自動的に待機してリトライします。
 
 - **デフォルト動作:** 310秒待機してリトライ（最大3回）
+- **Retry-After対応:** APIからの `Retry-After` ヘッダがある場合は、その値を優先して待機します
 - **設定変更:**
   ```python
   client = ClientV2(
-      retry_wait_seconds=60,  # 待機時間を60秒に変更
+      retry_wait_seconds=60,  # 待機時間を60秒に変更（Retry-Afterヘッダがない場合のフォールバック）
       retry_max_attempts=5    # 最大5回リトライ
   )
   ```

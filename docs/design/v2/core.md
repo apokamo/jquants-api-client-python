@@ -45,12 +45,16 @@ api_key = "your_api_key"
 - **Allowed Methods:** `["HEAD", "GET", "OPTIONS"]` (POST is excluded to prevent side effects).
 
 ### Rate Limit Errors (429)
-- Handled via custom logic in `ClientV2._request()`.
+- Handled via custom logic in `ClientV2._request()`, using helper methods:
+  - `_parse_retry_after()`: Parses `Retry-After` header (RFC 7231 compliant).
+  - `_calculate_retry_wait()`: Pure function to determine wait seconds or retry abort.
 - **Parameters:**
   - `retry_on_429`: bool (Default: `True`)
-  - `retry_wait_seconds`: int (Default: `310`)
+  - `retry_wait_seconds`: int (Default: `310`) — fallback when `Retry-After` header is absent/invalid.
   - `retry_max_attempts`: int (Default: `3`)
-- **Wait Policy:** Uses `time.sleep(retry_wait_seconds)` between attempts.
+- **Wait Policy:**
+  - Respects `Retry-After` header if present and valid (including `Retry-After: 0` for immediate retry).
+  - Falls back to `retry_wait_seconds` if header is missing or invalid.
 
 ### Exceptions
 All custom exceptions inherit from `jquants.exceptions.JQuantsAPIError`.
