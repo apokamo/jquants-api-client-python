@@ -17,7 +17,14 @@ class JQuantsAPIError(Exception):
         message: str,
         status_code: int | None = None,
         response_body: str | None = None,
-    ):
+    ) -> None:
+        """Initialize JQuantsAPIError.
+
+        Args:
+            message: Error message
+            status_code: HTTP status code (None for non-HTTP errors)
+            response_body: Raw response body for debugging
+        """
         super().__init__(message)
         self.status_code = status_code
         self.response_body = response_body

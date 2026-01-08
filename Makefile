@@ -5,6 +5,7 @@ lint:
 	poetry run black . --check
 	poetry run flake8 -j 1 .
 	poetry run mypy .
+	poetry run pydocstyle jquants/
 
 .PHONY: lint-fix
 lint-fix:
@@ -12,6 +13,7 @@ lint-fix:
 	poetry run black .
 	poetry run flake8 -j 1 .
 	poetry run mypy .
+	poetry run pydocstyle jquants/
 
 .PHONY: test
 test:
