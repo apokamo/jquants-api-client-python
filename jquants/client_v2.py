@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date as date_type
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 import pandas as pd
 import requests
@@ -121,7 +121,9 @@ class ClientV2:
         """Return True if running in Google Colab."""
         return "google.colab" in sys.modules
 
-    def _read_config(self, config_path: str, *, explicit: bool = False) -> dict:
+    def _read_config(
+        self, config_path: str, *, explicit: bool = False
+    ) -> dict[str, Any]:
         """
         Read config from TOML file.
 
@@ -158,7 +160,7 @@ class ClientV2:
         if "jquants-api-client" not in ret:
             return {}
 
-        section = ret["jquants-api-client"]
+        section: dict[str, Any] = ret["jquants-api-client"]
         if "api_key" in section:
             if not isinstance(section["api_key"], str):
                 if explicit:
@@ -176,7 +178,7 @@ class ClientV2:
                 del section["api_key"]
         return section
 
-    def _load_config(self) -> dict:
+    def _load_config(self) -> dict[str, Any]:
         """
         Load configuration from multiple sources with priority.
 
@@ -185,7 +187,7 @@ class ClientV2:
         Returns:
             dict: Merged configuration
         """
-        config: dict = {}
+        config: dict[str, Any] = {}
 
         # 1. Colab config (implicit)
         if self._is_colab():
@@ -210,7 +212,7 @@ class ClientV2:
 
         return config
 
-    def _base_headers(self) -> dict:
+    def _base_headers(self) -> dict[str, str]:
         """
         Generate base headers for API requests.
 
@@ -420,8 +422,8 @@ class ClientV2:
         method: str,
         path: str,
         *,
-        params: Optional[dict] = None,
-        json_data: Optional[dict] = None,
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
     ) -> requests.Response:
         """
         Send HTTP request with proper headers, timeout, and rate limiting.
@@ -485,7 +487,7 @@ class ClientV2:
     def _get_raw(
         self,
         path: str,
-        params: Optional[dict] = None,
+        params: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Execute GET request and return raw JSON string.
@@ -503,10 +505,10 @@ class ClientV2:
     def _paginated_get(
         self,
         path: str,
-        params: Optional[dict] = None,
+        params: Optional[dict[str, Any]] = None,
         *,
         max_pages: int = 1000,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """
         Execute GET request with pagination handling.
 
@@ -525,7 +527,7 @@ class ClientV2:
             JQuantsAPIError: If max_pages exceeded, pagination_key repeated,
                             or response shape is invalid (all with status_code=None)
         """
-        all_data: list[dict] = []
+        all_data: list[dict[str, Any]] = []
         current_params = dict(params) if params else {}
         seen_keys: set[str] = set()
 
@@ -599,7 +601,7 @@ class ClientV2:
 
     def _to_dataframe(
         self,
-        data: list[dict],
+        data: list[dict[str, Any]],
         columns: list[str],
         *,
         date_columns: list[str] | None = None,
@@ -695,7 +697,7 @@ class ClientV2:
         date: str = "",
     ) -> pd.DataFrame:
         """
-        銘柄マスター情報を取得する。
+        銘柄マスター情報を取得する.
 
         Args:
             code: 銘柄コード（省略時: 全銘柄）
@@ -704,7 +706,7 @@ class ClientV2:
         Returns:
             pd.DataFrame: 銘柄マスター（Code昇順でソート）
         """
-        params: dict = {}
+        params: dict[str, Any] = {}
         if code:
             params["code"] = code
         if date:
@@ -726,7 +728,7 @@ class ClientV2:
         to_date: str = "",
     ) -> pd.DataFrame:
         """
-        株価四本値を取得する。
+        株価四本値を取得する.
 
         Args:
             code: 銘柄コード（4桁: 普通株式のみ）
@@ -752,7 +754,7 @@ class ClientV2:
 
         self._validate_date_param_combination(date, from_date, to_date)
 
-        params: dict = {}
+        params: dict[str, Any] = {}
         if code:
             params["code"] = code
         if date:
@@ -772,7 +774,7 @@ class ClientV2:
 
     def get_fins_announcement(self) -> pd.DataFrame:
         """
-        決算発表日程を取得する。
+        決算発表日程を取得する.
 
         Returns:
             pd.DataFrame: 決算発表日程（Date, Code昇順でソート）
@@ -791,7 +793,7 @@ class ClientV2:
         end_dt: Optional[Union[str, datetime, date_type]] = None,
     ) -> pd.DataFrame:
         """
-        日付範囲で株価四本値を取得する。
+        日付範囲で株価四本値を取得する.
 
         Args:
             start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）
@@ -828,7 +830,7 @@ class ClientV2:
         to_date: str = "",
     ) -> pd.DataFrame:
         """
-        取引カレンダーを取得する。
+        取引カレンダーを取得する.
 
         Args:
             holiday_division: 休日区分（省略時: 全区分）
@@ -863,7 +865,7 @@ class ClientV2:
         to_date: str = "",
     ) -> pd.DataFrame:
         """
-        信用取引週末残高を取得する。
+        信用取引週末残高を取得する.
 
         Args:
             code: 銘柄コード（省略時: 全銘柄）
@@ -906,7 +908,7 @@ class ClientV2:
         to_date: str = "",
     ) -> pd.DataFrame:
         """
-        業種別空売り比率を取得する。
+        業種別空売り比率を取得する.
 
         Note:
             V2 API仕様では `date` または `sector_33_code` のいずれかが必須です。
@@ -971,7 +973,7 @@ class ClientV2:
         to_date: str = "",
     ) -> pd.DataFrame:
         """
-        売買内訳データを取得する。
+        売買内訳データを取得する.
 
         Args:
             code: 銘柄コード（省略時: 全銘柄）
@@ -1015,7 +1017,7 @@ class ClientV2:
         disc_date_to: str = "",
     ) -> pd.DataFrame:
         """
-        空売り残高報告を取得する。
+        空売り残高報告を取得する.
 
         Note:
             V2 API仕様 (https://jpx-jquants.com/ja/spec/mkt-short-sale) では、
@@ -1077,7 +1079,7 @@ class ClientV2:
         to_date: str = "",
     ) -> pd.DataFrame:
         """
-        信用取引残高（日々公表分）を取得する。
+        信用取引残高（日々公表分）を取得する.
 
         Note:
             V2 API仕様では `code` または `date` のいずれかが必須です。
@@ -1202,7 +1204,7 @@ class ClientV2:
         ensure_all_columns: bool = False,
     ) -> pd.DataFrame:
         """
-        日付範囲でデータを取得する共通ロジック。
+        日付範囲でデータを取得する共通ロジック.
 
         Args:
             start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）
@@ -1286,7 +1288,7 @@ class ClientV2:
         to_date: str = "",
     ) -> pd.DataFrame:
         """
-        指数四本値を取得する。
+        指数四本値を取得する.
 
         Args:
             code: 指数コード（省略時: 全指数）
@@ -1339,7 +1341,7 @@ class ClientV2:
         to_date: str = "",
     ) -> pd.DataFrame:
         """
-        TOPIX指数四本値を取得する。
+        TOPIX指数四本値を取得する.
 
         Args:
             from_date: 期間開始日 YYYY-MM-DD
@@ -1376,7 +1378,7 @@ class ClientV2:
         date: str = "",
     ) -> pd.DataFrame:
         """
-        決算短信サマリーを取得する。
+        決算短信サマリーを取得する.
 
         Args:
             code: 銘柄コード（4桁または5桁）
@@ -1418,7 +1420,7 @@ class ClientV2:
         end_dt: Optional[Union[str, datetime, date_type]] = None,
     ) -> pd.DataFrame:
         """
-        日付範囲で決算短信サマリーを取得する。
+        日付範囲で決算短信サマリーを取得する.
 
         Args:
             start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）
@@ -1452,7 +1454,7 @@ class ClientV2:
 
     def get_options_225_daily(self, date: str) -> pd.DataFrame:
         """
-        日経225オプション日足データを取得する。
+        日経225オプション日足データを取得する.
 
         Args:
             date: 取引日 YYYY-MM-DD or YYYYMMDD（必須）
@@ -1491,7 +1493,7 @@ class ClientV2:
         end_dt: Optional[Union[str, datetime, date_type]] = None,
     ) -> pd.DataFrame:
         """
-        日付範囲で日経225オプション日足データを取得する。
+        日付範囲で日経225オプション日足データを取得する.
 
         Args:
             start_dt: 開始日（YYYY-MM-DD文字列, date, または datetime）

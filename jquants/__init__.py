@@ -1,3 +1,5 @@
+"""J-Quants API Client Library."""
+
 # this version will be overwritten by poetry-dynamic-versioning
 __version__ = "0.0.0"
 

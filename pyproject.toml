@@ -39,6 +39,7 @@ isort = "^6.0.0"
 flake8 = "^7.0.0"
 Flake8-pyproject = "^1.2.3"
 mypy = "^1.15.0"
+pydocstyle = "^6.3.0"
 pytest = "^8.0.0"
 pytest-cov = "^6.0.0"
 types-python-dateutil = "^2.9.0"
@@ -58,6 +59,15 @@ exclude = ".venv,.uv-cache,.poetry-cache"
 profile = "black"
 skip = [".venv", ".uv-cache", ".poetry-cache"]
 skip_glob = ["**/node_modules/**"]
+
+[tool.mypy]
+files = ["jquants"]
+strict = true
+warn_return_any = true
+
+[tool.pydocstyle]
+convention = "google"
+add-ignore = ["D212"]  # 既存スタイル維持（1行目改行後に説明）
 
 [tool.pytest.ini_options]
 markers = [
