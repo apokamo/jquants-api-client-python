@@ -68,9 +68,9 @@ df = client.get_prices_daily_quotes(code="7203", date="2024-01-15")
 | メソッド | 変更前責務 | 変更後責務 |
 |----------|------------|------------|
 | `_request()` | HTTP送信 + Pacer + 429リトライ + エラーハンドリング | **変更なし**（低レベル HTTP） |
-| `_execute_json_request()` | (新設) | `_request()` + JSON パース + 形式検証 |
+| `_execute_json_request()` | (新設) | `_request()` + JSON パース |
 | `_get_raw()` | `_request()` + decode | `_request()` + decode（**変更なし**） |
-| `_paginated_get()` | `_request()` + JSON + pagination | `_execute_json_request()` + pagination |
+| `_paginated_get()` | `_request()` + JSON + pagination | `_execute_json_request()` + pagination + 形式検証 |
 
 ## 制約事項 (Constraints)
 
@@ -135,26 +135,26 @@ result = self._execute_json_request("GET", path, params=current_params)
 ## 検証観点 (Test Strategy)
 
 ### 正常系
-- [ ] 全エンドポイントが正常に動作すること（既存結合テストでカバー）
-- [ ] pagination が正常に動作すること
-- [ ] `_get_raw()` が従来通り動作すること
+- [x] 全エンドポイントが正常に動作すること（既存結合テストでカバー）
+- [x] pagination が正常に動作すること
+- [x] `_get_raw()` が従来通り動作すること
 
 ### 異常系
-- [ ] JSON パースエラー時に `JQuantsAPIError` が発生すること
-- [ ] 不正なレスポンス形式（dict 以外）で `JQuantsAPIError` が発生すること
-- [ ] 403/429/5xx エラーハンドリングが従来通り動作すること
+- [x] JSON パースエラー時に `JQuantsAPIError` が発生すること
+- [x] 不正なレスポンス形式（dict 以外）で `JQuantsAPIError` が発生すること
+- [x] 403/429/5xx エラーハンドリングが従来通り動作すること
 
 ### 境界値
-- [ ] 空レスポンス `{}` の処理
-- [ ] `"data": []` の処理
-- [ ] 大量ページネーション（max_pages 境界）
+- [x] 空レスポンス `{}` の処理
+- [x] `"data": []` の処理
+- [x] 大量ページネーション（max_pages 境界）
 
 ## タスクリスト
 
-- [ ] `_execute_json_request()` メソッドの実装
-- [ ] `_paginated_get()` のリファクタリング
-- [ ] 結合テストによる回帰確認
-- [ ] `docs/design/v2/core.md` のドキュメント更新
+- [x] `_execute_json_request()` メソッドの実装
+- [x] `_paginated_get()` のリファクタリング
+- [x] 結合テストによる回帰確認
+- [x] `docs/design/v2/core.md` のドキュメント更新
 
 ## 参考
 
