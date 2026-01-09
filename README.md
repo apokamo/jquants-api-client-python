@@ -1,107 +1,78 @@
 # jquants-api-client
 
-[![PyPI version](https://badge.fury.io/py/jquants-api-client.svg)](https://badge.fury.io/py/jquants-api-client)
+[J-Quants API](https://jpx-jquants.com/) V2 対応の Python クライアントライブラリ。
 
-個人投資家向けデータ API 配信サービス「 [J-Quants API](https://jpx-jquants.com/#jquants-api) 」の Python クライアントライブラリです。
-J-Quants や API 仕様についての詳細を知りたい方は [公式ウェブサイト](https://jpx-jquants.com/) をご参照ください。
-現在、J-Quants API は有償版サービスとして提供されています。
+> **Note**: This is a fork of [J-Quants/jquants-api-client-python](https://github.com/J-Quants/jquants-api-client-python) with V2 API support and additional features.
 
-## 使用方法
+## インストール
 
-pip 経由でインストールします。
-
-```shell
-pip install jquants-api-client
+```bash
+pip install git+https://github.com/apokamo/jquants-api-client-python.git
 ```
 
-### J-Quants API の利用
-
-To use J-Quants API, you need to "Applications for J-Quants API" from [J-Quants API Web site](https://jpx-jquants.com/?lang=en) and to select a plan.
-
-J-Quants API を利用するためには[J-Quants API の Web サイト](https://jpx-jquants.com/) から「J-Quants API 申し込み」及び利用プランの選択が必要になります。
-
-jquants-api-client-python を使用するためには「J-Quants API メニューページから取得した API キー」が必要になります。必要に応じて下記の Web サイトより取得してください。
-
-[J-Quants API メニューページ](https://jpx-jquants.com/)
-
-### サンプルコード
+## 使用例
 
 ```python
 from jquants import ClientV2
 
-api_key = "*****"
-cli = ClientV2(api_key=api_key)
-df = cli.get_prices_daily_quotes(date="2022-07-25")
-print(df)
+cli = ClientV2()  # 環境変数 JQUANTS_API_KEY から読み込み
+df = cli.get_prices_daily_quotes(code="7203", from_date="2024-01-01", to_date="2024-01-31")
 ```
 
-API レスポンスが Dataframe の形式で取得できます。
+## API キー設定
 
-## 対応 API
+以下の優先順位で読み込み（後勝ち）:
 
-V2 API の各エンドポイントに対応したメソッドを提供しています。
-
-### 基本エンドポイント
-
-ご契約のプランに応じて、以下のメソッドが利用可能です。
-
-#### Free プラン以上
-- `get_listed_info`: 銘柄マスター
-- `get_prices_daily_quotes`: 株価四本値
-- `get_fins_summary`: 決算短信サマリー（一括取得）
-- `get_fins_announcement`: 決算発表予定
-
-#### Light プラン以上
-- `get_indices_topix`: TOPIX指数四本値
-
-#### Standard プラン以上
-- `get_options_225_daily`: 日経225オプション日足
-- `get_markets_weekly_margin_interest`: 信用取引週末残高
-- `get_markets_short_selling`: 業種別空売り比率
-- `get_indices`: 指数四本値
-- `get_markets_short_selling_positions`: 空売り残高報告
-- `get_markets_daily_margin_interest`: 信用取引残高（日々公表分）
-
-#### Premium プラン以上
-- `get_markets_breakdown`: 売買内訳データ
-
-### 期間指定・一括取得ユーティリティ (`*_range`)
-
-日付範囲を指定してデータを一括取得し、結合した DataFrame を返す便利なメソッドです。内部で `max_workers` による並列取得が可能です。
-
-- `get_price_range`: 株価四本値
-- `get_summary_range`: 決算短信サマリー
-- `get_options_225_daily_range`: 日経225オプション日足
-
-## 設定
-
-認証用の API キーは設定ファイルおよび環境変数を使用して指定することも可能です。
-設定は下記の順に読み込まれ、設定項目が重複している場合は後に読み込まれた値で上書きされます。
-
-1. `/content/drive/MyDrive/drive_ws/secret/jquants-api.toml` (Google Colab のみ)
-2. `${HOME}/.jquants-api/jquants-api.toml`
-3. `jquants-api.toml`
-4. `os.environ["JQUANTS_API_CLIENT_CONFIG_FILE"]`
-5. `${JQUANTS_API_KEY}`
-
-### 設定ファイル例
-
-`jquants-api.toml` は下記のように設定します。
+1. `~/.jquants-api/jquants-api.toml`
+2. `./jquants-api.toml`
+3. 環境変数 `JQUANTS_API_KEY`
+4. コンストラクタ引数 `ClientV2(api_key="...")`
 
 ```toml
+# jquants-api.toml
 [jquants-api-client]
-api_key = "*****"
+api_key = "your_api_key"
 ```
 
-## 動作確認
+## 対応メソッド
 
-Google Colab および Python 3.12 で動作確認を行っています。
-J-Quants API は有償版で継続開発されているため、本ライブラリも今後仕様が変更となる可能性があります。
-Python の EOL を迎えたバージョンはサポート対象外となります。
-Please note we only support Python supported versions. Unsupported versions (after EOL) are not supported.
-ref. https://devguide.python.org/versions/#supported-versions
+### Equities
+| メソッド | 説明 | プラン |
+|---------|------|--------|
+| `get_listed_info` | 銘柄マスター | Free |
+| `get_prices_daily_quotes` | 株価四本値 | Free |
+| `get_price_range` | 株価四本値（期間一括） | Free |
+| `get_fins_summary` | 決算短信サマリー | Free |
+| `get_summary_range` | 決算短信サマリー（期間一括） | Free |
+| `get_fins_announcement` | 決算発表予定 | Free |
 
-## 開発
+### Indices
+| メソッド | 説明 | プラン |
+|---------|------|--------|
+| `get_indices_topix` | TOPIX指数四本値 | Light |
+| `get_indices` | 指数四本値 | Standard |
 
-J-Quants API Client の開発に是非ご協力ください。
-Github 上で Issue や Pull Request をお待ちしております。
+### Markets
+| メソッド | 説明 | プラン |
+|---------|------|--------|
+| `get_markets_trading_calendar` | 取引カレンダー | Free |
+| `get_markets_weekly_margin_interest` | 信用取引週末残高 | Standard |
+| `get_markets_short_selling` | 業種別空売り比率 | Standard |
+| `get_markets_short_selling_positions` | 空売り残高報告 | Standard |
+| `get_markets_daily_margin_interest` | 信用取引残高（日々） | Standard |
+| `get_markets_breakdown` | 売買内訳データ | Premium |
+
+### Derivatives
+| メソッド | 説明 | プラン |
+|---------|------|--------|
+| `get_options_225_daily` | 日経225オプション日足 | Standard |
+| `get_options_225_daily_range` | 日経225オプション（期間一括） | Standard |
+
+## 動作環境
+
+- Python 3.12+
+- J-Quants API キー（[公式サイト](https://jpx-jquants.com/)で取得）
+
+## ライセンス
+
+Apache-2.0（オリジナル: [J-Quants Project Contributors](https://github.com/J-Quants/jquants-api-client-python)）
