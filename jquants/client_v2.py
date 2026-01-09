@@ -484,6 +484,49 @@ class ClientV2:
             response_body=None,
         )
 
+    def _execute_json_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[dict] = None,
+        json_data: Optional[dict] = None,
+    ) -> dict:
+        """
+        Execute HTTP request and return parsed JSON response.
+
+        This method wraps _request() and adds JSON parsing with error handling.
+        It centralizes the JSON parsing logic that was previously duplicated
+        in _paginated_get().
+
+        Args:
+            method: HTTP method ("GET" or "POST")
+            path: API path (e.g., "/equities/master")
+            params: Query parameters
+            json_data: JSON body for POST requests
+
+        Returns:
+            Parsed JSON response as dict
+
+        Raises:
+            JQuantsForbiddenError: 403 Forbidden (via _request)
+            JQuantsRateLimitError: 429 Too Many Requests (via _request)
+            JQuantsAPIError: JSON parse error (status_code=None)
+            JQuantsAPIError: Other 4xx/5xx errors (via _request)
+        """
+        response = self._request(method, path, params=params, json_data=json_data)
+
+        try:
+            return response.json()
+        except (ValueError, TypeError) as e:
+            # Include response preview for debugging
+            body_preview = response.text[:200] if response.text else "(empty)"
+            raise JQuantsAPIError(
+                f"Failed to parse JSON response: {e}. Response preview: {body_preview}",
+                status_code=None,
+                response_body=self._truncate_response_body(response.text),
+            ) from e
+
     def _get_raw(
         self,
         path: str,
@@ -532,17 +575,8 @@ class ClientV2:
         seen_keys: set[str] = set()
 
         for page in range(max_pages):
-            response = self._request("GET", path, params=current_params)
-
-            # Parse JSON (status_code=None: client-side error)
-            try:
-                result = response.json()
-            except (ValueError, TypeError) as e:
-                raise JQuantsAPIError(
-                    f"JSON decode error: {e} (path={path}, page={page})",
-                    status_code=None,
-                    response_body=self._truncate_response_body(response.text),
-                ) from e
+            # Use _execute_json_request for HTTP + JSON parsing
+            result = self._execute_json_request("GET", path, params=current_params)
 
             # Validate response shape (status_code=None: contract violation)
             if not isinstance(result, dict):
@@ -550,7 +584,7 @@ class ClientV2:
                     f"Unexpected response type: expected dict, "
                     f"got {type(result).__name__} (path={path}, page={page})",
                     status_code=None,
-                    response_body=self._truncate_response_body(response.text),
+                    response_body=None,
                 )
 
             # V2 format: data is always in "data" key (required)
@@ -558,7 +592,7 @@ class ClientV2:
                 raise JQuantsAPIError(
                     f"Missing 'data' key in response (path={path}, page={page})",
                     status_code=None,
-                    response_body=self._truncate_response_body(response.text),
+                    response_body=None,
                 )
             data = result["data"]
             if not isinstance(data, list):
@@ -566,7 +600,7 @@ class ClientV2:
                     f"Unexpected data type: expected list, "
                     f"got {type(data).__name__} (path={path}, page={page})",
                     status_code=None,
-                    response_body=self._truncate_response_body(response.text),
+                    response_body=None,
                 )
             all_data.extend(data)
 
