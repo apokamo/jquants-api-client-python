@@ -16,7 +16,69 @@ pip install git+https://github.com/apokamo/jquants-api-client-python.git
 from jquants import ClientV2
 
 cli = ClientV2()  # 環境変数 JQUANTS_API_KEY から読み込み
+```
+
+### 銘柄マスター
+
+```python
+# 全銘柄
+df = cli.get_listed_info()
+
+# 特定銘柄
+df = cli.get_listed_info(code="7203")
+```
+
+### 株価四本値
+
+```python
+# 特定日の全銘柄
+df = cli.get_prices_daily_quotes(date="2024-01-15")
+
+# 特定銘柄の期間指定
 df = cli.get_prices_daily_quotes(code="7203", from_date="2024-01-01", to_date="2024-01-31")
+
+# 期間一括取得（並列化対応）
+df = cli.get_price_range(start_dt="2024-01-01", end_dt="2024-01-31")
+```
+
+### 決算情報
+
+```python
+# 決算短信サマリー
+df = cli.get_fins_summary(code="7203")
+
+# 決算発表予定
+df = cli.get_fins_announcement()
+```
+
+### 指数
+
+```python
+# TOPIX
+df = cli.get_indices_topix(from_date="2024-01-01", to_date="2024-01-31")
+
+# 指数四本値
+df = cli.get_indices(code="0000", from_date="2024-01-01", to_date="2024-01-31")
+```
+
+### オプション・先物
+
+```python
+# 日経225オプション
+df = cli.get_options_225_daily(date="2024-01-15")
+
+# 期間一括取得
+df = cli.get_options_225_daily_range(start_dt="2024-01-01", end_dt="2024-01-31")
+```
+
+### 並列取得の設定
+
+```python
+# max_workers で並列度を指定（デフォルト: 1 = 直列）
+cli = ClientV2(max_workers=3)
+
+# rate_limit でリクエスト頻度を制御（デフォルト: 5 req/min）
+cli = ClientV2(rate_limit=10)  # 10 req/min
 ```
 
 ## API キー設定
