@@ -38,6 +38,19 @@ api_key = "your_api_key"
 
 ## Request / retry / errors
 
+### Request Pipeline
+
+Low-level HTTP request flow is encapsulated in a layered structure:
+
+| Method | Responsibility |
+| :--- | :--- |
+| `_request()` | HTTP send + Pacer + 429 retry + error handling (raises exceptions) |
+| `_execute_json_request()` | `_request()` + JSON parsing (raises `JQuantsAPIError` on parse failure) |
+| `_get_raw()` | `_request()` + UTF-8 decode (for raw JSON string access) |
+| `_paginated_get()` | `_execute_json_request()` + pagination handling + response shape validation |
+
+Endpoints use `_paginated_get()` for standard V2 API calls, keeping endpoint methods focused on parameter construction and DataFrame shaping.
+
 ### Transient Errors (5xx)
 - Uses `requests.Session` + `urllib3.Retry`.
 - **Strategy:** 3 retries for status codes `[500, 502, 503, 504]`.

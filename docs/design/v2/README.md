@@ -22,6 +22,7 @@ Design notes for `jquants.ClientV2` (V2 API client). This is for contributors/ag
 
 ### Core
 - `docs/design/v2/core.md`: Auth, config, retry, pagination, DataFrame rules, and range helpers.
+- `docs/design/v2/request-pipeline.md`: Request pipeline refactoring design (Issue #33).
 
 ### Equities (`/v2/equities/*`)
 - `docs/design/v2/endpoints/equities/master.md`: Listed info (`get_listed_info`)
