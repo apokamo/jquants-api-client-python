@@ -1,30 +1,29 @@
 # indices/bars/daily (`get_indices`)
 
-## Scope
+## スコープ
 
-Index daily OHLCV bars.
+指数の四本値（日次）。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_indices()` or `INDICES_BARS_DAILY_COLUMNS`.
+- `ClientV2.get_indices()` または `INDICES_BARS_DAILY_COLUMNS` を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_indices`
 - `jquants/constants_v2.py`: `INDICES_BARS_DAILY_COLUMNS`
-- Design issue (Reference): #20
+- 設計Issue (参照): #20
 
 ## API
 
-- V2 path: `/v2/indices/bars/daily`
-- Method: `ClientV2.get_indices(code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
+- V2 パス: `/v2/indices/bars/daily`
+- メソッド: `ClientV2.get_indices(code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `Date`, `Code` (ascending)
-- Major columns: `Date`, `Code`, `O`, `H`, `L`, `C` (See `constants_v2.py` for full list)
+- ソート順: `Date`, `Code` (昇順)
+- 主要カラム: `Date`, `Code`, `O`, `H`, `L`, `C` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- None.
-
+- なし。

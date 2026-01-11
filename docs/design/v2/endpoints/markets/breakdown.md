@@ -1,30 +1,29 @@
 # markets/breakdown (`get_markets_breakdown`)
 
-## Scope
+## スコープ
 
-Markets breakdown data.
+売買内訳データ。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_markets_breakdown()` or `MARKETS_BREAKDOWN_COLUMNS`.
+- `ClientV2.get_markets_breakdown()` または `MARKETS_BREAKDOWN_COLUMNS` を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_markets_breakdown`
 - `jquants/constants_v2.py`: `MARKETS_BREAKDOWN_COLUMNS`
-- Design issue (Reference): #19
+- 設計Issue (参照): #19
 
 ## API
 
-- V2 path: `/v2/markets/breakdown`
-- Method: `ClientV2.get_markets_breakdown(code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
+- V2 パス: `/v2/markets/breakdown`
+- メソッド: `ClientV2.get_markets_breakdown(code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `Date`, `Code` (ascending)
-- Major columns: `Date`, `Code`, `LongSellVa`, `ShrtNoMrgnVa`, `MrgnSellNewVa`, `LongBuyVa`, `MrgnBuyNewVa` (See `constants_v2.py` for full list)
+- ソート順: `Date`, `Code` (昇順)
+- 主要カラム: `Date`, `Code`, `LongSellVa`, `ShrtNoMrgnVa`, `MrgnSellNewVa`, `LongBuyVa`, `MrgnBuyNewVa` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- None.
-
+- なし。

@@ -1,30 +1,29 @@
 # markets/margin-interest (`get_markets_weekly_margin_interest`)
 
-## Scope
+## スコープ
 
-Weekly margin interest.
+信用取引週末残高。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_markets_weekly_margin_interest()` or `MARKETS_MARGIN_INTEREST_COLUMNS`.
+- `ClientV2.get_markets_weekly_margin_interest()` または `MARKETS_MARGIN_INTEREST_COLUMNS` を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_markets_weekly_margin_interest`
 - `jquants/constants_v2.py`: `MARKETS_MARGIN_INTEREST_COLUMNS`
-- Design issue (Reference): #19
+- 設計Issue (参照): #19
 
 ## API
 
-- V2 path: `/v2/markets/margin-interest`
-- Method: `ClientV2.get_markets_weekly_margin_interest(code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
+- V2 パス: `/v2/markets/margin-interest`
+- メソッド: `ClientV2.get_markets_weekly_margin_interest(code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `Date`, `Code` (ascending)
-- Major columns: `Date`, `Code`, `ShrtVol`, `LongVol` (See `constants_v2.py` for full list)
+- ソート順: `Date`, `Code` (昇順)
+- 主要カラム: `Date`, `Code`, `ShrtVol`, `LongVol` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- None.
-
+- なし。

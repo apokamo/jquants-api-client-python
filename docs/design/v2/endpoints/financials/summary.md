@@ -1,32 +1,31 @@
 # fins/summary (`get_fins_summary`)
 
-## Scope
+## スコープ
 
-Financials summary (決算短信サマリー).
+財務情報（決算短信サマリー）。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_fins_summary()` or `FINS_SUMMARY_COLUMNS`.
-- When changing the date-range helper behavior for summaries.
+- `ClientV2.get_fins_summary()` または `FINS_SUMMARY_COLUMNS` を変更するとき。
+- 財務情報の期間指定取得ヘルパーの挙動を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_fins_summary`, `ClientV2.get_summary_range`
 - `jquants/constants_v2.py`: `FINS_SUMMARY_COLUMNS`, `FINS_SUMMARY_DATE_COLUMNS`
-- Design issue (Reference): #21
+- 設計Issue (参照): #21
 
 ## API
 
-- V2 path: `/v2/fins/summary`
-- Method: `ClientV2.get_fins_summary(code: str = "", date: str = "")`
+- V2 パス: `/v2/fins/summary`
+- メソッド: `ClientV2.get_fins_summary(code: str = "", date: str = "")`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `DiscDate`, `DiscTime`, `Code` (ascending)
-- Major columns: `DiscDate`, `Code`, `Sales`, `OP`, `NP`, `EPS`, `DivAnn` (See `constants_v2.py` for full list)
+- ソート順: `DiscDate`, `DiscTime`, `Code` (昇順)
+- 主要カラム: `DiscDate`, `Code`, `Sales`, `OP`, `NP`, `EPS`, `DivAnn` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- Exists: `ClientV2.get_summary_range(start_dt, end_dt=None)`
-- Details: `docs/design/v2/core.md#range-helpers`
-
+- あり: `ClientV2.get_summary_range(start_dt, end_dt=None)`
+- 詳細: `docs/design/v2/core.md#range-helpers`

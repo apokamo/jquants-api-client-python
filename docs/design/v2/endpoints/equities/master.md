@@ -1,30 +1,29 @@
 # equities/master (`get_listed_info`)
 
-## Scope
+## スコープ
 
-Listed issue (master) data for equities.
+株式の銘柄一覧（マスター）データ。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_listed_info()` or `EQUITIES_MASTER_COLUMNS`.
+- `ClientV2.get_listed_info()` または `EQUITIES_MASTER_COLUMNS` を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_listed_info`
 - `jquants/constants_v2.py`: `EQUITIES_MASTER_COLUMNS`
-- Design issue (Reference): #17
+- 設計Issue (参照): #17
 
 ## API
 
-- V2 path: `/v2/equities/master`
-- Method: `ClientV2.get_listed_info(code: str = "", date: str = "")`
+- V2 パス: `/v2/equities/master`
+- メソッド: `ClientV2.get_listed_info(code: str = "", date: str = "")`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `Code` (ascending)
-- Major columns: `Date`, `Code`, `CoName`, `S17`, `S33`, `Mkt` (See `constants_v2.py` for full list)
+- ソート順: `Code` (昇順)
+- 主要カラム: `Date`, `Code`, `CoName`, `S17`, `S33`, `Mkt` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- None.
-
+- なし。

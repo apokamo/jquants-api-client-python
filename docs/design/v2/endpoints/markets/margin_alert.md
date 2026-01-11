@@ -1,30 +1,29 @@
 # markets/margin-alert (`get_markets_daily_margin_interest`)
 
-## Scope
+## スコープ
 
-Daily margin interest (margin alert), includes nested `PubReason` fields.
+信用取引残高（日々公表信用残高）。ネストされた `PubReason` フィールドを含みます。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_markets_daily_margin_interest()` or `MARKETS_MARGIN_ALERT_COLUMNS`.
+- `ClientV2.get_markets_daily_margin_interest()` または `MARKETS_MARGIN_ALERT_COLUMNS` を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_markets_daily_margin_interest`
 - `jquants/constants_v2.py`: `MARKETS_MARGIN_ALERT_COLUMNS`
-- Design issue (Reference): #19
+- 設計Issue (参照): #19
 
 ## API
 
-- V2 path: `/v2/markets/margin-alert`
-- Method: `ClientV2.get_markets_daily_margin_interest(code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
+- V2 パス: `/v2/markets/margin-alert`
+- メソッド: `ClientV2.get_markets_daily_margin_interest(code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `PubDate`, `Code` (ascending)
-- Major columns: `PubDate`, `Code`, `AppDate`, `ShrtOut`, `LongOut` (See `constants_v2.py` for full list)
+- ソート順: `PubDate`, `Code` (昇順)
+- 主要カラム: `PubDate`, `Code`, `AppDate`, `ShrtOut`, `LongOut` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- None.
-
+- なし。
