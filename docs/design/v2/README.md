@@ -28,6 +28,7 @@
 - `docs/design/v2/endpoints/equities/master.md`: 銘柄一覧 (`get_listed_info`)
 - `docs/design/v2/endpoints/equities/bars_daily.md`: 株価四本値 (`get_prices_daily_quotes`)
 - `docs/design/v2/endpoints/equities/earnings_calendar.md`: 決算発表予定 (`get_fins_announcement`)
+- `docs/design/v2/endpoints/equities/investor_types.md`: 投資部門別売買状況 (`get_equities_investor_types`)
 
 ### 市場 (`/v2/markets/*`)
 - `docs/design/v2/endpoints/markets/calendar.md`: 取引カレンダー (`get_markets_trading_calendar`)
