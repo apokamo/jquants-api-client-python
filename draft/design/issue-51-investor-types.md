@@ -19,13 +19,13 @@ Issue: #51
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | section | str | No | 市場区分 ([有効値一覧](https://jpx-jquants.com/ja/spec/name-section)) |
-| from_date | str | No | 開始日 YYYY-MM-DD or YYYYMMDD |
-| to_date | str | No | 終了日 YYYY-MM-DD or YYYYMMDD |
+| from_date | str | No | 開始日 YYYY-MM-DD |
+| to_date | str | No | 終了日 YYYY-MM-DD |
 
 **制約**:
 - パラメータはすべて省略可能（全件取得）
 - `from_date`/`to_date` は単独または組み合わせで使用可
-- 日付形式は YYYY-MM-DD または YYYYMMDD（既存メソッドと同様）
+- 日付形式は YYYY-MM-DD（既存メソッドと同様）
 
 ### 出力
 
