@@ -8,6 +8,7 @@ Sub-Phase 3.2 endpoints:
 - get_prices_daily_quotes() - /v2/equities/bars/daily
 - get_fins_announcement() - /v2/equities/earnings-calendar
 - get_price_range() - date range helper
+- get_equities_investor_types() - /v2/equities/investor-types
 """
 
 import pandas as pd
@@ -253,3 +254,86 @@ class TestEquitiesIntegration:
                 c for c in constants.EQUITIES_BARS_DAILY_COLUMNS if c in df.columns
             ]
             assert list(df.columns) == expected_cols
+
+    # ========================================
+    # get_equities_investor_types() tests
+    # ========================================
+
+    @requires_api_key
+    def test_get_equities_investor_types_all(self, client):
+        """Test get_equities_investor_types returns valid DataFrame for all sections."""
+        df = client.get_equities_investor_types()
+
+        assert isinstance(df, pd.DataFrame)
+        # This endpoint may return empty if no recent data
+        if not df.empty:
+            # Check column order matches constants
+            expected_cols = [
+                c for c in constants.EQUITIES_INVESTOR_TYPES_COLUMNS if c in df.columns
+            ]
+            assert list(df.columns) == expected_cols
+
+            # Check date columns are datetime
+            assert pd.api.types.is_datetime64_any_dtype(df["PubDate"])
+            assert pd.api.types.is_datetime64_any_dtype(df["StDate"])
+            assert pd.api.types.is_datetime64_any_dtype(df["EnDate"])
+
+            # Check sorted by PubDate, Section
+            if len(df) > 1:
+                for i in range(len(df) - 1):
+                    curr_date = df.iloc[i]["PubDate"]
+                    next_date = df.iloc[i + 1]["PubDate"]
+                    assert (
+                        curr_date < next_date
+                        or curr_date == next_date
+                        and df.iloc[i]["Section"] <= df.iloc[i + 1]["Section"]
+                    )
+
+    @requires_api_key
+    def test_get_equities_investor_types_with_section(self, client):
+        """Test get_equities_investor_types with section filter."""
+        df = client.get_equities_investor_types(section="TSEPrime")
+
+        assert isinstance(df, pd.DataFrame)
+        if not df.empty:
+            # Should filter by section
+            assert all(df["Section"] == "TSEPrime")
+
+    @requires_api_key
+    def test_get_equities_investor_types_with_date_range(self, client):
+        """Test get_equities_investor_types with date range."""
+        df = client.get_equities_investor_types(
+            from_date="2024-01-01",
+            to_date="2024-03-31",
+        )
+
+        assert isinstance(df, pd.DataFrame)
+        if not df.empty:
+            # Check date range (PubDate should be within range)
+            min_date = pd.Timestamp("2024-01-01")
+            max_date = pd.Timestamp("2024-03-31")
+            assert df["PubDate"].min() >= min_date
+            assert df["PubDate"].max() <= max_date
+
+    @requires_api_key
+    def test_get_equities_investor_types_column_order(self, client):
+        """Test that get_equities_investor_types columns match constants definition order."""
+        df = client.get_equities_investor_types(section="TSEPrime")
+
+        assert isinstance(df, pd.DataFrame)
+        if not df.empty:
+            expected_cols = [
+                c for c in constants.EQUITIES_INVESTOR_TYPES_COLUMNS if c in df.columns
+            ]
+            assert list(df.columns) == expected_cols
+
+    @requires_api_key
+    def test_get_equities_investor_types_nonexistent_section(self, client):
+        """Test get_equities_investor_types returns empty DataFrame for nonexistent section."""
+        df = client.get_equities_investor_types(section="NonExistentSection")
+
+        assert isinstance(df, pd.DataFrame)
+        # Should return empty DataFrame, not raise error
+        assert df.empty
+        # Empty DataFrame should still have column definitions
+        assert list(df.columns) == constants.EQUITIES_INVESTOR_TYPES_COLUMNS
