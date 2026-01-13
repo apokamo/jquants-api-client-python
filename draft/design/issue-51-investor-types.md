@@ -18,14 +18,14 @@ Issue: #51
 
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
-| section | str | No | 市場区分 (例: "TSEPrime", "TSEStandard", "TSEGrowth") |
-| from_date | str | No | 開始日 YYYY-MM-DD |
-| to_date | str | No | 終了日 YYYY-MM-DD |
+| section | str | No | 市場区分 ([有効値一覧](https://jpx-jquants.com/ja/spec/name-section)) |
+| from_date | str | No | 開始日 YYYY-MM-DD or YYYYMMDD |
+| to_date | str | No | 終了日 YYYY-MM-DD or YYYYMMDD |
 
 **制約**:
 - パラメータはすべて省略可能（全件取得）
 - `from_date`/`to_date` は単独または組み合わせで使用可
-- 日付形式は YYYY-MM-DD のみ（YYYYMMDD は ValueError）
+- 日付形式は YYYY-MM-DD または YYYYMMDD（既存メソッドと同様）
 
 ### 出力
 
@@ -101,7 +101,7 @@ def get_equities_investor_types(
 - PubDate, Section でソートされていること
 
 ### 異常系
-- 不正な日付形式で ValueError が発生すること
+- 無効な日付文字列で適切なエラーが発生すること
 - 存在しない section でも空 DataFrame が返ること（APIエラーにならない）
 
 ### 境界値
@@ -111,4 +111,5 @@ def get_equities_investor_types(
 ## 参考
 
 - V2 API仕様: https://jpx-jquants.com/ja/spec/eq-investor-types
+- 市場名（section有効値）: https://jpx-jquants.com/ja/spec/name-section
 - 既存カラム定義: `jquants/constants_v2.py` L101-171
