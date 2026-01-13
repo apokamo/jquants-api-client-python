@@ -693,3 +693,213 @@ class TestGetPriceRange:
 
         with pytest.raises(ValueError):
             client.get_price_range(start_dt="2024-01-15", end_dt="20240116")
+
+
+class TestGetEquitiesInvestorTypes:
+    """Test get_equities_investor_types() - /v2/equities/investor-types."""
+
+    def test_returns_dataframe(self):
+        """EP-IT-001: get_equities_investor_types() should return pd.DataFrame."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = [
+                {
+                    "Section": "TSEPrime",
+                    "PubDate": "2024-01-15",
+                    "StDate": "2024-01-09",
+                    "EnDate": "2024-01-12",
+                    "PropSell": 100000,
+                    "PropBuy": 200000,
+                    "PropTot": 300000,
+                    "PropBal": 100000,
+                }
+            ]
+
+            result = client.get_equities_investor_types()
+
+            assert isinstance(result, pd.DataFrame)
+
+    def test_no_params_calls_api_without_query(self):
+        """EP-IT-002: get_equities_investor_types() without args should call API without params."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = []
+
+            client.get_equities_investor_types()
+
+            mock_get.assert_called_once()
+            call_kwargs = mock_get.call_args[1]
+            assert call_kwargs["params"] == {}
+
+    def test_section_param_passed_to_api(self):
+        """EP-IT-003: get_equities_investor_types(section='TSEPrime') should pass section param."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = []
+
+            client.get_equities_investor_types(section="TSEPrime")
+
+            mock_get.assert_called_once()
+            call_kwargs = mock_get.call_args[1]
+            assert call_kwargs["params"]["section"] == "TSEPrime"
+
+    def test_from_to_date_params_passed_to_api(self):
+        """EP-IT-004: from_date and to_date params should be passed."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = []
+
+            client.get_equities_investor_types(
+                from_date="2024-01-01",
+                to_date="2024-12-31",
+            )
+
+            mock_get.assert_called_once()
+            call_kwargs = mock_get.call_args[1]
+            assert call_kwargs["params"]["from"] == "2024-01-01"
+            assert call_kwargs["params"]["to"] == "2024-12-31"
+
+    def test_all_params_combined(self):
+        """EP-IT-005: All params combined should be passed correctly."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = []
+
+            client.get_equities_investor_types(
+                section="TSEPrime",
+                from_date="2024-01-01",
+                to_date="2024-12-31",
+            )
+
+            mock_get.assert_called_once()
+            call_kwargs = mock_get.call_args[1]
+            assert call_kwargs["params"]["section"] == "TSEPrime"
+            assert call_kwargs["params"]["from"] == "2024-01-01"
+            assert call_kwargs["params"]["to"] == "2024-12-31"
+
+    def test_empty_response_returns_empty_dataframe_with_columns(self):
+        """EP-IT-006: Empty response should return empty DataFrame with correct columns."""
+        from jquants.constants_v2 import EQUITIES_INVESTOR_TYPES_COLUMNS
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = []
+
+            result = client.get_equities_investor_types()
+
+            assert isinstance(result, pd.DataFrame)
+            assert len(result) == 0
+            assert list(result.columns) == EQUITIES_INVESTOR_TYPES_COLUMNS
+
+    def test_date_columns_converted_to_timestamp(self):
+        """EP-IT-007: PubDate, StDate, EnDate columns should be converted to pd.Timestamp."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = [
+                {
+                    "Section": "TSEPrime",
+                    "PubDate": "2024-01-15",
+                    "StDate": "2024-01-09",
+                    "EnDate": "2024-01-12",
+                    "PropSell": 100000,
+                    "PropBuy": 200000,
+                    "PropTot": 300000,
+                    "PropBal": 100000,
+                }
+            ]
+
+            result = client.get_equities_investor_types()
+
+            assert pd.api.types.is_datetime64_any_dtype(result["PubDate"])
+            assert pd.api.types.is_datetime64_any_dtype(result["StDate"])
+            assert pd.api.types.is_datetime64_any_dtype(result["EnDate"])
+
+    def test_sorted_by_pubdate_and_section_ascending(self):
+        """EP-IT-008: Result should be sorted by PubDate, Section ascending."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = [
+                {
+                    "Section": "TSEStandard",
+                    "PubDate": "2024-01-15",
+                    "StDate": "2024-01-09",
+                    "EnDate": "2024-01-12",
+                    "PropSell": 0,
+                },
+                {
+                    "Section": "TSEPrime",
+                    "PubDate": "2024-01-15",
+                    "StDate": "2024-01-09",
+                    "EnDate": "2024-01-12",
+                    "PropSell": 0,
+                },
+                {
+                    "Section": "TSEPrime",
+                    "PubDate": "2024-01-08",
+                    "StDate": "2024-01-02",
+                    "EnDate": "2024-01-05",
+                    "PropSell": 0,
+                },
+            ]
+
+            result = client.get_equities_investor_types()
+
+            # First row: 2024-01-08, TSEPrime
+            assert result.iloc[0]["PubDate"] == pd.Timestamp("2024-01-08")
+            assert result.iloc[0]["Section"] == "TSEPrime"
+            # Second row: 2024-01-15, TSEPrime
+            assert result.iloc[1]["PubDate"] == pd.Timestamp("2024-01-15")
+            assert result.iloc[1]["Section"] == "TSEPrime"
+            # Third row: 2024-01-15, TSEStandard
+            assert result.iloc[2]["PubDate"] == pd.Timestamp("2024-01-15")
+            assert result.iloc[2]["Section"] == "TSEStandard"
+
+    def test_column_order_matches_constants(self):
+        """EP-IT-009: Column order should match EQUITIES_INVESTOR_TYPES_COLUMNS."""
+        from jquants.constants_v2 import EQUITIES_INVESTOR_TYPES_COLUMNS
+
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            # Return data with columns in different order
+            mock_get.return_value = [
+                {
+                    "PropBuy": 200000,
+                    "Section": "TSEPrime",
+                    "EnDate": "2024-01-12",
+                    "PubDate": "2024-01-15",
+                    "StDate": "2024-01-09",
+                    "PropSell": 100000,
+                    "PropTot": 300000,
+                    "PropBal": 100000,
+                }
+            ]
+
+            result = client.get_equities_investor_types()
+
+            # Columns should be reordered to match constants
+            expected_cols = [
+                c for c in EQUITIES_INVESTOR_TYPES_COLUMNS if c in result.columns
+            ]
+            assert list(result.columns) == expected_cols
+
+    def test_endpoint_path_is_correct(self):
+        """EP-IT-010: Should call correct API endpoint path."""
+        client = ClientV2(api_key="test_api_key")
+
+        with patch.object(client, "_paginated_get") as mock_get:
+            mock_get.return_value = []
+
+            client.get_equities_investor_types()
+
+            mock_get.assert_called_once()
+            call_args = mock_get.call_args[0]
+            assert call_args[0] == "/equities/investor-types"
