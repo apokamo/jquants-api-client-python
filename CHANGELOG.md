@@ -48,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - パッケージ名を `jquantsapi` から `jquants` に変更
-- Python 3.11+ 必須
+- Python 3.12+ 必須
 
 ## [Unreleased]
 
