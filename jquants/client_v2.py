@@ -821,6 +821,40 @@ class ClientV2:
             sort_columns=["Date", "Code"],
         )
 
+    def get_equities_investor_types(
+        self,
+        section: str = "",
+        from_date: str = "",
+        to_date: str = "",
+    ) -> pd.DataFrame:
+        """
+        投資部門別売買状況を取得する.
+
+        Args:
+            section: 市場区分（省略時: 全市場）
+            from_date: 期間開始日 YYYY-MM-DD
+            to_date: 期間終了日 YYYY-MM-DD
+
+        Returns:
+            pd.DataFrame: 投資部門別売買状況（PubDate, Section昇順でソート）
+        """
+        params: dict[str, str] = {}
+        if section:
+            params["section"] = section
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+
+        data = self._paginated_get("/equities/investor-types", params=params)
+
+        return self._to_dataframe(
+            data,
+            constants_v2.EQUITIES_INVESTOR_TYPES_COLUMNS,
+            date_columns=["PubDate", "StDate", "EnDate"],
+            sort_columns=["PubDate", "Section"],
+        )
+
     def get_price_range(
         self,
         start_dt: Union[str, datetime, date_type],

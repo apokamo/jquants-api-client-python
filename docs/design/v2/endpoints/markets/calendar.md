@@ -1,30 +1,29 @@
 # markets/calendar (`get_markets_trading_calendar`)
 
-## Scope
+## スコープ
 
-Trading calendar.
+取引カレンダー。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_markets_trading_calendar()` or `MARKETS_CALENDAR_COLUMNS`.
+- `ClientV2.get_markets_trading_calendar()` または `MARKETS_CALENDAR_COLUMNS` を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_markets_trading_calendar`
 - `jquants/constants_v2.py`: `MARKETS_CALENDAR_COLUMNS`
-- Design issue (Reference): #19
+- 設計Issue (参照): #19
 
 ## API
 
-- V2 path: `/v2/markets/calendar`
-- Method: `ClientV2.get_markets_trading_calendar(holiday_division: str = "", from_date: str = "", to_date: str = "")`
+- V2 パス: `/v2/markets/calendar`
+- メソッド: `ClientV2.get_markets_trading_calendar(holiday_division: str = "", from_date: str = "", to_date: str = "")`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `Date` (ascending)
-- Major columns: `Date`, `HolDiv` (See `constants_v2.py` for full list)
+- ソート順: `Date` (昇順)
+- 主要カラム: `Date`, `HolDiv` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- None.
-
+- なし。

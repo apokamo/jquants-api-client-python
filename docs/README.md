@@ -1,6 +1,5 @@
-# Docs
+# ドキュメント
 
-This directory contains contributor-facing design notes for the `jquants` (V2) client.
+このディレクトリには、`jquants` (V2) クライアントのコントリビューター向け設計ノートが含まれています。
 
-- Start here: `docs/design/v2/README.md`
-
+- まずはこちらから: `docs/design/v2/README.md`

@@ -107,6 +107,7 @@ api_key = "your_api_key"
 | `get_fins_summary` | 決算短信サマリー | Free |
 | `get_summary_range` | 決算短信サマリー（期間一括） | Free |
 | `get_fins_announcement` | 決算発表予定 | Free |
+| `get_equities_investor_types` | 投資部門別売買状況 | Light |
 
 ### Indices
 | メソッド | 説明 | プラン |

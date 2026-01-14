@@ -1,30 +1,29 @@
 # markets/short-ratio (`get_markets_short_selling`)
 
-## Scope
+## スコープ
 
-Short selling ratio by 33 sector.
+業種別空売り比率。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_markets_short_selling()` or `MARKETS_SHORT_RATIO_COLUMNS`.
+- `ClientV2.get_markets_short_selling()` または `MARKETS_SHORT_RATIO_COLUMNS` を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_markets_short_selling`
 - `jquants/constants_v2.py`: `MARKETS_SHORT_RATIO_COLUMNS`
-- Design issue (Reference): #19
+- 設計Issue (参照): #19
 
 ## API
 
-- V2 path: `/v2/markets/short-ratio`
-- Method: `ClientV2.get_markets_short_selling(sector_33_code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
+- V2 パス: `/v2/markets/short-ratio`
+- メソッド: `ClientV2.get_markets_short_selling(sector_33_code: str = "", date: str = "", from_date: str = "", to_date: str = "")`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `Date`, `S33` (ascending)
-- Major columns: `Date`, `S33`, `SellExShortVa`, `ShrtWithResVa`, `ShrtNoResVa` (See `constants_v2.py` for full list)
+- ソート順: `Date`, `S33` (昇順)
+- 主要カラム: `Date`, `S33`, `SellExShortVa`, `ShrtWithResVa`, `ShrtNoResVa` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- None.
-
+- なし。

@@ -1,30 +1,29 @@
 # equities/earnings-calendar (`get_fins_announcement`)
 
-## Scope
+## スコープ
 
-Earnings announcement calendar.
+決算発表カレンダー。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_fins_announcement()` or `EQUITIES_EARNINGS_CALENDAR_COLUMNS`.
+- `ClientV2.get_fins_announcement()` または `EQUITIES_EARNINGS_CALENDAR_COLUMNS` を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_fins_announcement`
 - `jquants/constants_v2.py`: `EQUITIES_EARNINGS_CALENDAR_COLUMNS`
-- Design issue (Reference): #17
+- 設計Issue (参照): #17
 
 ## API
 
-- V2 path: `/v2/equities/earnings-calendar`
-- Method: `ClientV2.get_fins_announcement()`
+- V2 パス: `/v2/equities/earnings-calendar`
+- メソッド: `ClientV2.get_fins_announcement()`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `Date`, `Code` (ascending)
-- Major columns: `Date`, `Code`, `CoName`, `FY`, `FQ` (See `constants_v2.py` for full list)
+- ソート順: `Date`, `Code` (昇順)
+- 主要カラム: `Date`, `Code`, `CoName`, `FY`, `FQ` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- None.
-
+- なし。

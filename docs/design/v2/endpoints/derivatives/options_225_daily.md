@@ -1,32 +1,31 @@
 # derivatives/bars/daily/options/225 (`get_options_225_daily`)
 
-## Scope
+## スコープ
 
-Nikkei 225 options daily bars.
+日経225オプションの四本値（日次）。
 
-## When to read
+## 読むタイミング
 
-- When changing `ClientV2.get_options_225_daily()` or `DERIVATIVES_OPTIONS_225_COLUMNS`.
-- When changing the date-range helper behavior for options.
+- `ClientV2.get_options_225_daily()` または `DERIVATIVES_OPTIONS_225_COLUMNS` を変更するとき。
+- オプションの期間指定取得ヘルパーの挙動を変更するとき。
 
-## Source of truth
+## 情報源 (Source of truth)
 
 - `jquants/client_v2.py`: `ClientV2.get_options_225_daily`, `ClientV2.get_options_225_daily_range`
 - `jquants/constants_v2.py`: `DERIVATIVES_OPTIONS_225_COLUMNS`, `DERIVATIVES_OPTIONS_225_DATE_COLUMNS`, `DERIVATIVES_OPTIONS_225_NUMERIC_COLUMNS`
-- Design issue (Reference): #25 (note: method naming differs; docs follow the current implementation)
+- 設計Issue (参照): #25 (注: メソッド名は異なります。ドキュメントは現在の実装に従います)
 
 ## API
 
-- V2 path: `/v2/derivatives/bars/daily/options/225`
-- Method: `ClientV2.get_options_225_daily(date: str)`
+- V2 パス: `/v2/derivatives/bars/daily/options/225`
+- メソッド: `ClientV2.get_options_225_daily(date: str)`
 
-## DataFrame contract
+## DataFrame 契約 (Contract)
 
-- Sorted by: `Code` (ascending)
-- Major columns: `Date`, `Code`, `Strike`, `PCDiv`, `O`, `H`, `L`, `C`, `OI`, `IV` (See `constants_v2.py` for full list)
+- ソート順: `Code` (昇順)
+- 主要カラム: `Date`, `Code`, `Strike`, `PCDiv`, `O`, `H`, `L`, `C`, `OI`, `IV` (全リストは `constants_v2.py` を参照)
 
-## Range helper
+## 範囲取得ヘルパー (Range helper)
 
-- Exists: `ClientV2.get_options_225_daily_range(start_dt, end_dt=None)`
-- Details: `docs/design/v2/core.md#range-helpers`
-
+- あり: `ClientV2.get_options_225_daily_range(start_dt, end_dt=None)`
+- 詳細: `docs/design/v2/core.md#range-helpers`

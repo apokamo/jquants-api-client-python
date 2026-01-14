@@ -48,15 +48,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - パッケージ名を `jquantsapi` から `jquants` に変更
-- Python 3.11+ 必須
+- Python 3.12+ 必須
 
 ## [Unreleased]
 
+### Added
+
+- `get_equities_investor_types()`: 投資部門別売買状況 (Light+) (#51)
+
 ### Planned
 
-- Premium エンドポイント（6件）
+- Premium エンドポイント（5件）
   - `/v2/equities/bars/daily/am`
-  - `/v2/equities/investor-types`
   - `/v2/fins/details`
   - `/v2/fins/dividend`
   - `/v2/derivatives/bars/daily/futures`
