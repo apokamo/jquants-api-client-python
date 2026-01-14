@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-01-14
+
+### Added
+
+- `get_equities_investor_types()`: 投資部門別売買状況 (Light+) (#51)
+
 ## [0.1.0] - 2026-01-10
 
 ### Added
@@ -52,10 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- `get_equities_investor_types()`: 投資部門別売買状況 (Light+) (#51)
-
 ### Planned
 
 - Premium エンドポイント（5件）
@@ -66,4 +68,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/v2/derivatives/bars/daily/options`
 
 [0.1.0]: https://github.com/apokamo/jquants-api-client-python/releases/tag/v0.1.0
-[Unreleased]: https://github.com/apokamo/jquants-api-client-python/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/apokamo/jquants-api-client-python/releases/tag/v0.1.1
+[Unreleased]: https://github.com/apokamo/jquants-api-client-python/compare/v0.1.1...HEAD
