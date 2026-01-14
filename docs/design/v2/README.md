@@ -32,17 +32,17 @@
 
 ### 市場 (`/v2/markets/*`)
 - `docs/design/v2/endpoints/markets/calendar.md`: 取引カレンダー (`get_markets_trading_calendar`)
-- `docs/design/v2/endpoints/markets/margin_interest.md`: 信用取引週末残高 (`get_markets_trades_spec`)
-- `docs/design/v2/endpoints/markets/short_ratio.md`: 空売り比率 (`get_markets_short_ratio`)
+- `docs/design/v2/endpoints/markets/margin_interest.md`: 信用取引週末残高 (`get_markets_weekly_margin_interest`)
+- `docs/design/v2/endpoints/markets/short_ratio.md`: 空売り比率 (`get_markets_short_selling`)
 - `docs/design/v2/endpoints/markets/breakdown.md`: 売買内訳データ (`get_markets_breakdown`)
-- `docs/design/v2/endpoints/markets/short_sale_report.md`: 空売り残高 (`get_markets_short_sale_positions`)
+- `docs/design/v2/endpoints/markets/short_sale_report.md`: 空売り残高 (`get_markets_short_selling_positions`)
 
 ### 指数 (`/v2/indices/*`)
-- `docs/design/v2/endpoints/indices/bars_daily.md`: 指数四本値 (`get_indices_topix_daily_quotes` など)
+- `docs/design/v2/endpoints/indices/bars_daily.md`: 指数四本値 (`get_indices`, `get_indices_topix`)
 - `docs/design/v2/endpoints/indices/bars_daily_topix.md`: TOPIX四本値 (廃止パス、スキーマは同じ)
 
 ### 財務 (`/v2/fins/*`)
-- `docs/design/v2/endpoints/financials/summary.md`: 財務情報 (`get_fins_statements`)
+- `docs/design/v2/endpoints/financials/summary.md`: 財務情報 (`get_fins_summary`)
 
 ### デリバティブ (`/v2/derivatives/*`)
 - `docs/design/v2/endpoints/derivatives/options_225_daily.md`: 日経225オプション (`get_options_225_daily`)
